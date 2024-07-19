@@ -7,3 +7,5 @@ extern const char* GIT_LONGHASH;
 extern const char* OS_BUILD;
 extern const char* COMPILER_ID;
 extern const char* COMPILER_VERSION;
+extern const wchar_t* BUILD_DISPLAY;
+extern const int* BUILD_DISPLAY_SIZE;
