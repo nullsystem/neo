@@ -129,6 +129,8 @@ public:
 	virtual void ChangeLevel(void) OVERRIDE;
 
 	virtual void ClientDisconnected(edict_t* pClient) OVERRIDE;
+
+	CBaseEntity *GetPlayerSpawnSpot(CBasePlayer *pPlayer) override;
 #endif
 	virtual bool ShouldCollide( int collisionGroup0, int collisionGroup1 ) OVERRIDE;
 

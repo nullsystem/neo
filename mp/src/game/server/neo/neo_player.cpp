@@ -119,6 +119,7 @@ CNEOGameRulesProxy* neoGameRules;
 extern CBaseEntity *g_pLastSpawn;
 
 extern ConVar neo_sv_ignore_wep_xp_limit;
+extern ConVar neo_sv_dmspawn_useent;
 
 ConVar sv_neo_can_change_classes_anytime("sv_neo_can_change_classes_anytime", "0", FCVAR_CHEAT | FCVAR_REPLICATED, "Can players change classes at any moment, even mid-round?",
 	true, 0.0f, true, 1.0f);
@@ -2130,7 +2131,15 @@ CBaseEntity* CNEO_Player::EntSelectSpawnPoint( void )
 	const char *pSpawnpointName = "info_player_start";
 	const auto alternate = NEORules()->roundAlternate();
 
-	if (NEORules()->IsTeamplay())
+	// NEO TODO (nullsystem): Teamplay vs non-teamplay
+	// info_player_deathmatch is from HL2MP, but maps can utilize HL2MP and this entity anyway
+	const bool bIsTeamplay = NEORules()->IsTeamplay();
+	if (neo_sv_dmspawn_useent.GetBool() || !bIsTeamplay)
+	{
+		pSpawnpointName = "info_player_deathmatch";
+		pLastSpawnPoint = g_pLastSpawn;
+	}
+	else
 	{
 		if (GetTeamNumber() == TEAM_JINRAI)
 		{

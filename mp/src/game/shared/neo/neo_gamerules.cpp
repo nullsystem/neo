@@ -23,6 +23,7 @@
 	#include "hl2mp_gameinterface.h"
 	#include "player_resource.h"
 	#include "inetchannelinfo.h"
+	#include "neo_dm_spawn.h"
 
 extern ConVar weaponstay;
 #endif
@@ -2333,6 +2334,26 @@ bool CNEORules::FPlayerCanRespawn(CBasePlayer* pPlayer)
 
 	return false;
 }
+
+CBaseEntity *CNEORules::GetPlayerSpawnSpot(CBasePlayer *pPlayer)
+{
+	// NEO NOTE (nullsystem): If available + DM, instead of by entity, player spawn
+	// by set position. It doesn't seem anything utilizes what returned anyway.
+	if (DMSpawn::HasDMSpawn())
+	{
+		const Vector vAbsOrigin = DMSpawn::GiveNextSpawn();
+		pPlayer->SetLocalOrigin(vAbsOrigin + Vector(0,0,1));
+		pPlayer->SetAbsVelocity(vec3_origin);
+		pPlayer->SetLocalAngles(vec3_angle);
+		pPlayer->m_Local.m_vecPunchAngle = vec3_angle;
+		pPlayer->m_Local.m_vecPunchAngleVel = vec3_angle;
+		pPlayer->SnapEyeAngles(vec3_angle);
+		return nullptr;
+	}
+
+	return BaseClass::GetPlayerSpawnSpot(pPlayer);
+}
+
 #endif
 
 void CNEORules::SetRoundStatus(NeoRoundStatus status)
