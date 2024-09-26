@@ -17,6 +17,7 @@
 #include "VGuiMatSurface/IMatSystemSurface.h"
 #include "client_virtualreality.h"
 #include "sourcevr/isourcevirtualreality.h"
+#include "ui/neo_hud_crosshair.h"
 
 #ifdef SIXENSE
 #include "sixense/in_sixense.h"
@@ -46,9 +47,32 @@ int ScreenTransform( const Vector& point, Vector& screen );
 DECLARE_HUDELEMENT_DEPTH(CHudCrosshair, 9999);
 #endif
 
+#ifdef NEO
+static inline bool g_bInstalledCVarCallback = false;
+
+void CVGlobal_NeoClCrosshair(IConVar *var, [[maybe_unused]] const char *pOldString, [[maybe_unused]] float flOldValue)
+{
+	CHudCrosshair *crosshair = GET_HUDELEMENT(CHudCrosshair);
+	if (crosshair && V_strstr(var->GetName(), "neo_cl_crosshair"))
+	{
+		// NEO NOTE (nullsystem): Only mark for refresh, not immediate as they will likely be multiple of convars sent
+		// over
+		crosshair->m_bRefreshCrosshair = true;
+	}
+}
+#endif
+
 CHudCrosshair::CHudCrosshair( const char *pElementName ) :
 		CHudElement( pElementName ), BaseClass( NULL, "HudCrosshair" )
 {
+#ifdef NEO
+	if (!g_bInstalledCVarCallback)
+	{
+		cvar->InstallGlobalChangeCallback(CVGlobal_NeoClCrosshair);
+		g_bInstalledCVarCallback = true;
+	}
+#endif
+
 	vgui::Panel *pParent = g_pClientMode->GetViewport();
 	SetParent( pParent );
 
@@ -278,7 +302,7 @@ void CHudCrosshair::Paint( void )
 	if ( pWeapon )
 	{
 		// NEO HACK (Rain): this should get implemented in virtual pNeoWep->GetWeaponCrosshairScale
-		pNeoWep = dynamic_cast<CNEOBaseCombatWeapon*>(pWeapon);
+		pNeoWep = static_cast<CNEOBaseCombatWeapon *>(pWeapon);
 		if (pNeoWep && pNeoWep->GetNeoWepBits() & NEO_WEP_SCOPEDWEAPON)
 		{
 			int screenWidth, screenHeight;
@@ -327,22 +351,51 @@ void CHudCrosshair::Paint( void )
 
 	int iWidth = (int)( flWidth + 0.5f );
 	int iHeight = (int)( flHeight + 0.5f );
+
 	int iX = (int)( x + 0.5f );
 	int iY = (int)( y + 0.5f );
 
-	m_pCrosshair->DrawSelfCropped (
-		iX-(iWidth/2), iY-(iHeight/2),
-		0, 0,
-		iTextureW, iTextureH,
-		iWidth, iHeight,
-#ifdef TF_CLIENT_DLL
-		clr
-#else
-		m_clrCrosshair
-#endif
-	);
+	const bool bIsScoped = pNeoWep && pNeoWep->GetNeoWepBits() & NEO_WEP_SCOPEDWEAPON;
 
-	if (pNeoWep && pNeoWep->GetNeoWepBits() & NEO_WEP_SCOPEDWEAPON)
+	if (bIsScoped || CROSSHAIR_FILES[neo_cl_crosshair_style.GetInt()][0])
+	{
+		m_pCrosshair->DrawSelfCropped (
+			iX-(iWidth/2), iY-(iHeight/2),
+			0, 0,
+			iTextureW, iTextureH,
+			iWidth, iHeight,
+#ifdef TF_CLIENT_DLL
+			clr
+#else
+			m_clrCrosshair
+#endif
+		);
+	}
+	else
+	{
+		if (m_bRefreshCrosshair)
+		{
+			m_crosshairInfo = CrosshairInfo{
+					.color = Color(
+						neo_cl_crosshair_color_r.GetInt(), neo_cl_crosshair_color_g.GetInt(),
+						neo_cl_crosshair_color_b.GetInt(), neo_cl_crosshair_color_a.GetInt()),
+					.iESizeType = neo_cl_crosshair_size_type.GetInt(),
+					.iSize = neo_cl_crosshair_size.GetInt(),
+					.flScrSize = neo_cl_crosshair_size_screen.GetFloat(),
+					.iThick = neo_cl_crosshair_thickness.GetInt(),
+					.iGap = neo_cl_crosshair_gap.GetInt(),
+					.iOutline = neo_cl_crosshair_outline.GetInt(),
+					.iCenterDot = neo_cl_crosshair_center_dot.GetInt(),
+					.bTopLine = neo_cl_crosshair_top_line.GetBool(),
+					.iCircleRad = neo_cl_crosshair_circle_radius.GetInt(),
+					.iCircleSegments = neo_cl_crosshair_circle_segments.GetInt(),
+				};
+			m_bRefreshCrosshair = false;
+		}
+		PaintCrosshair(m_crosshairInfo, iX, iY);
+	}
+
+	if (bIsScoped)
 	{
 		int screenWidth, screenHeight;
 		GetHudSize(screenWidth, screenHeight);
