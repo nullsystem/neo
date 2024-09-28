@@ -4,6 +4,9 @@
 #include <vgui/ISurface.h>
 #include <vgui/IInput.h>
 #include <vgui_controls/Controls.h>
+#include <filesystem.h>
+
+#include "stb_image.h"
 
 using namespace vgui;
 
@@ -1018,6 +1021,229 @@ void OpenURL(const char *szBaseUrl, const char *szPath)
 	char syscmd[512] = {};
 	V_sprintf_safe(syscmd, "%s %s%s", CMD, szBaseUrl, szPath);
 	system(syscmd);
+}
+
+uint8 *ConvertToVTF(char (*szRetTexPath)[VTF_PATH_MAX], const char *szFullpath)
+{
+	if (!szFullpath)
+	{
+		return nullptr;
+	}
+
+	// TODO: See: CViewRender::WriteSaveGameScreenshotOfSize
+	int width, height, stride;
+	uint8 *data = stbi_load(szFullpath, &width, &height, &stride, 0);
+	if (!data || width <= 0 || height <= 0)
+	{
+		return nullptr;
+	}
+
+	// Convert to RGBA
+	if (stride == 3)
+	{
+		uint8 *rgbaData = (uint8 *)(calloc(width * height, sizeof(uint8) * 4));
+
+#if 0
+		const int iSrcEnd = width * height * stride;
+
+		for (int srcOffset = 0, dstOffset = 0;
+			 srcOffset < iSrcEnd;
+			 srcOffset += stride, dstOffset += 4)
+		{
+			V_memcpy(rgbaData + dstOffset, data + srcOffset, stride);
+			(rgbaData + dstOffset)[4] = 255;
+		}
+#else
+		bool bConverted = ImageLoader::ConvertImageFormat(data, IMAGE_FORMAT_RGB888,
+														  rgbaData, IMAGE_FORMAT_RGBA8888,
+														  width, height);
+#endif
+
+		stbi_image_free(data);
+		data = rgbaData;
+		stride = 4;
+	}
+
+	// Crop to 256x256
+	if (width != 256 || height != 256)
+	{
+		uint8 *croppedData = (uint8 *)(calloc(256 * 256, sizeof(uint8) * stride));
+
+#if 1
+		const int dstYLines = 256 * stride;
+		const int dstYEnd = dstYLines * 256;
+		const int dstXOffset = (width < 256) ? (256 - width) : 0;
+		const int dstYOffset = (height < 256) ? (256 - height) : 0;
+		const int dstOffsetStart = (dstYOffset * dstYLines) + (dstXOffset * stride);
+
+		const int srcYLines = width * stride;
+		const int srcYEnd = srcYLines * height;
+		const int srcXOffset = (width > 256) ? ((width / 2) - 128) : 0;
+		const int srcYOffset = (height > 256) ? ((height / 2) - 128) : 0;
+		const int srcOffsetStart = (srcYOffset * srcYLines) + (srcXOffset * stride);
+
+		const int xTakeMem = ((width > 256) ? 256 : width) * stride;
+
+		for (int srcOffset = srcOffsetStart, dstOffset = dstOffsetStart;
+			 (srcOffset < srcYEnd) && (dstOffset < dstYEnd);
+			 srcOffset += srcYLines, dstOffset += dstYLines)
+		{
+			V_memcpy(croppedData + dstOffset, data + srcOffset, xTakeMem);
+		}
+#else
+		ImageLoader::ResampleInfo_t info;
+		info.m_pSrc = data;
+		info.m_pDest = croppedData;
+		info.m_nSrcWidth = width;
+		info.m_nSrcHeight = height;
+		info.m_nSrcDepth = 1;
+		info.m_nDestWidth = 256;
+		info.m_nDestHeight = 256;
+		info.m_nDestDepth = 1;
+		info.m_flSrcGamma = 2.2f;
+		info.m_flDestGamma = 2.2f;
+		info.m_flAlphaThreshhold = 1.0f;
+		info.m_flAlphaHiFreqThreshhold = 1.0f;
+		info.m_nFlags = ImageLoader::RESAMPLE_NORMALMAP;
+		bool bResampled = ResampleRGBA8888(info);
+#endif
+
+		stbi_image_free(data);
+		data = croppedData;
+		width = 256;
+		height = 256;
+	}
+
+	const char *pLastSlash = V_strrchr(szFullpath, '/');
+	const char *pszBaseName = pLastSlash ? pLastSlash + 1 : szFullpath;
+	char *pszDot = strchr((char *)(pszBaseName), '.');
+	if (pszDot)
+	{
+		*pszDot = '\0';
+	}
+	V_sprintf_safe(*szRetTexPath, "materials/vgui/logos/%s", pszBaseName);
+	filesystem->CreateDirHierarchy("materials/vgui/logos");
+	char szFullFilePath[PATH_MAX];
+
+#if 0
+	From VPC: https://developer.valvesoftware.com/wiki/VTF_(Valve_Texture_Format)
+	typedef struct tagVTFHEADER // 7.1
+	{
+		char            signature[4];       // File signature ("VTF\0"). (or as little-endian integer, 0x00465456)
+		unsigned int    version[2];         // version[0].version[1] (currently 7.2).
+		unsigned int    headerSize;         // Size of the header struct  (16 byte aligned; currently 80 bytes) + size of the resources dictionary (7.3+).
+		unsigned short  width;              // Width of the largest mipmap in pixels. Must be a power of 2.
+		unsigned short  height;             // Height of the largest mipmap in pixels. Must be a power of 2.
+		unsigned int    flags;              // VTF flags.
+		unsigned short  frames;             // Number of frames, if animated (1 for no animation).
+		unsigned short  firstFrame;         // First frame in animation (0 based). Can be -1 in environment maps older than 7.5, meaning there are 7 faces, not 6.
+		unsigned char   padding0[4];        // reflectivity padding (16 byte alignment).
+		float           reflectivity[3];    // reflectivity vector.
+		unsigned char   padding1[4];        // reflectivity padding (8 byte packing).
+		float           bumpmapScale;       // Bumpmap scale.
+		int             highResImageFormat; // High resolution image format.
+		unsigned char   mipmapCount;        // Number of mipmaps.
+		int             lowResImageFormat;  // Low resolution image format (Usually DXT1).
+		unsigned char   lowResImageWidth;   // Low resolution image width.
+		unsigned char   lowResImageHeight;  // Low resolution image height.
+	} VTFHEADER;
+#endif
+
+#if 1
+	// Create and initialize a 256x256 VTF texture
+	CUtlBuffer buffer;
+
+	// Signature
+	buffer.PutString("VTF");
+	buffer.PutChar('\0');
+
+	// Version
+	buffer.PutUnsignedInt(7);
+	buffer.PutUnsignedInt(1);
+
+	// Header size
+	buffer.PutUnsignedInt(64);
+
+	// Width + height
+	buffer.PutUnsignedShort(256);
+	buffer.PutUnsignedShort(256);
+
+	// Flags
+	const int iFlags = TEXTUREFLAGS_CLAMPT | TEXTUREFLAGS_CLAMPS | TEXTUREFLAGS_NOLOD | TEXTUREFLAGS_EIGHTBITALPHA;
+	buffer.PutUnsignedInt(iFlags);
+
+	// Frames
+#endif
+
+#if 0
+	CUtlBuffer buffer;
+	bool bWriteResult = false;
+	IVTFTexture *pVTFTexture = CreateVTFTexture();
+	const int nFlags = TEXTUREFLAGS_CLAMPT | TEXTUREFLAGS_CLAMPS | TEXTUREFLAGS_NOLOD | TEXTUREFLAGS_EIGHTBITALPHA;
+	if (pVTFTexture->Init(256, 256, 1, IMAGE_FORMAT_RGBA8888, nFlags, 1))
+	{
+		pVTFTexture->InitLowResImage(16, 16, IMAGE_FORMAT_RGBA8888);
+
+		uint8 *pDstData = pVTFTexture->ImageData();
+		V_memcpy(pDstData, data, width * height * 4);
+
+		pVTFTexture->ConvertImageFormat(IMAGE_FORMAT_DEFAULT, false);
+		pVTFTexture->GenerateMipmaps();
+		pVTFTexture->ConstructLowResImage();
+		pVTFTexture->ConvertImageFormat(IMAGE_FORMAT_DXT1, false);
+
+		// Allocate output buffer
+		const int iFileSize = pVTFTexture->FileSize() * 2;
+		void *pVTF = malloc(iFileSize);
+		buffer.SetExternalBuffer(pVTF, iFileSize, 0);
+
+		// Serialize to the buffer
+		bWriteResult = pVTFTexture->Serialize(buffer);
+
+		// Free the VTF texture
+		DestroyVTFTexture(pVTFTexture);
+	}
+	else
+	{
+		bWriteResult = false;
+	}
+
+	//stbi_image_free(data);
+
+	if (!bWriteResult)
+	{
+		return nullptr;
+	}
+#endif
+
+	V_sprintf_safe(szFullFilePath, "%s.vtf", *szRetTexPath);
+	if (!filesystem->WriteFile(szFullFilePath, nullptr, buffer))
+	{
+		// TODO ERROR
+	}
+
+	// TODO: Windows use back-slash
+	char szStrBuffer[1024];
+	V_sprintf_safe(szStrBuffer, R"VMT(
+LightmappedGeneric
+{
+	"$basetexture"	"vgui/logos/%s"
+	"$translucent" "1"
+	"$decal" "1"
+	"$decalscale" "0.250"
+}
+)VMT", pszBaseName);
+
+	CUtlBuffer bufVmt(0, 0, CUtlBuffer::TEXT_BUFFER);
+	bufVmt.PutString(szStrBuffer);
+
+	V_sprintf_safe(szFullFilePath, "%s.vmt", *szRetTexPath);
+	if (!filesystem->WriteFile(szFullFilePath, nullptr, bufVmt))
+	{
+		// TODO ERROR
+	}
+
+	return data;
 }
 
 }  // namespace NeoUI

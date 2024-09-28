@@ -37,6 +37,8 @@ struct NeoSettings
 		bool bShowPos;
 		int iShowFps;
 		int iDlFilter;
+
+		int iTexIdSpray;
 	};
 
 	struct Keys
