@@ -22,6 +22,8 @@
 extern CNeoRoot *g_pNeoRoot;
 extern NeoUI::Context g_uiCtx;
 extern int g_iRowsInScreen;
+extern bool g_bOBSDetected;
+extern ConVar neo_cl_streamermode;
 
 const wchar_t *QUALITY_LABELS[] = {
 	L"Low",
@@ -239,6 +241,8 @@ void NeoSettingsRestore(NeoSettings *ns, const NeoSettings::Keys::Flags flagsKey
 				}
 			}
 		}
+		pGeneral->bStreamerMode = cvr->neo_cl_streamermode.GetBool();
+		pGeneral->bAutoDetectOBS = cvr->neo_cl_streamermode_autodetect_obs.GetBool();
 	}
 	{
 		NeoSettings::Keys *pKeys = &ns->keys;
@@ -438,6 +442,8 @@ void NeoSettingsSave(const NeoSettings *ns)
 		cvr->cl_showpos.SetValue(pGeneral->bShowPos);
 		cvr->cl_showfps.SetValue(pGeneral->iShowFps);
 		cvr->cl_downloadfilter.SetValue(DLFILTER_STRMAP[pGeneral->iDlFilter]);
+		cvr->neo_cl_streamermode.SetValue(pGeneral->bStreamerMode);
+		cvr->neo_cl_streamermode_autodetect_obs.SetValue(pGeneral->bAutoDetectOBS);
 	}
 	{
 		const NeoSettings::Keys *pKeys = &ns->keys;
@@ -616,15 +622,22 @@ static_assert(ARRAYSIZE(DLFILTER_STRMAP) == ARRAYSIZE(DLFILTER_LABELS));
 void NeoSettings_General(NeoSettings *ns)
 {
 	NeoSettings::General *pGeneral = &ns->general;
-	NeoUI::TextEdit(L"Name", pGeneral->wszNeoName, SZWSZ_LEN(pGeneral->wszNeoName));
-	NeoUI::RingBoxBool(L"Show only steam name", &pGeneral->bOnlySteamNick);
+	if (neo_cl_streamermode.GetBool())
+	{
+		NeoUI::Label(L"Streamer mode enabled: Names settings not displayed.");
+	}
+	else
+	{
+		NeoUI::TextEdit(L"Name", pGeneral->wszNeoName, SZWSZ_LEN(pGeneral->wszNeoName));
+		NeoUI::RingBoxBool(L"Show only steam name", &pGeneral->bOnlySteamNick);
 
-	const bool bShowSteamNick = pGeneral->bOnlySteamNick || pGeneral->wszNeoName[0] == '\0';
-	wchar_t wszDisplayName[MAX_PLAYER_NAME_LENGTH + 1];
-	(bShowSteamNick) ? (void)g_pVGuiLocalize->ConvertANSIToUnicode(steamapicontext->SteamFriends()->GetPersonaName(), wszDisplayName, sizeof(wszDisplayName))
-					 : (void)V_wcscpy_safe(wszDisplayName, pGeneral->wszNeoName);
+		const bool bShowSteamNick = pGeneral->bOnlySteamNick || pGeneral->wszNeoName[0] == '\0';
+		wchar_t wszDisplayName[MAX_PLAYER_NAME_LENGTH + 1];
+		(bShowSteamNick) ? (void)g_pVGuiLocalize->ConvertANSIToUnicode(steamapicontext->SteamFriends()->GetPersonaName(), wszDisplayName, sizeof(wszDisplayName))
+						 : (void)V_wcscpy_safe(wszDisplayName, pGeneral->wszNeoName);
 
-	NeoUI::Label(L"Display name", wszDisplayName);
+		NeoUI::Label(L"Display name", wszDisplayName);
+	}
 	NeoUI::SliderInt(L"FOV", &pGeneral->iFov, 75, 110);
 	NeoUI::SliderInt(L"Viewmodel FOV Offset", &pGeneral->iViewmodelFov, -20, 40);
 	NeoUI::RingBoxBool(L"Aim hold", &pGeneral->bAimHold);
@@ -635,6 +648,9 @@ void NeoSettings_General(NeoSettings *ns)
 	NeoUI::RingBoxBool(L"Show position", &pGeneral->bShowPos);
 	NeoUI::RingBox(L"Show FPS", SHOWFPS_LABELS, ARRAYSIZE(SHOWFPS_LABELS), &pGeneral->iShowFps);
 	NeoUI::RingBox(L"Download filter", DLFILTER_LABELS, ARRAYSIZE(DLFILTER_LABELS), &pGeneral->iDlFilter);
+	NeoUI::RingBoxBool(L"Streamer mode", &pGeneral->bStreamerMode);
+	NeoUI::RingBoxBool(L"Auto streamer mode (requires restart)", &pGeneral->bAutoDetectOBS);
+	NeoUI::Label(L"OBS detection", g_bOBSDetected ? L"OBS detected on startup" : L"Not detected on startup");
 }
 
 void NeoSettings_Keys(NeoSettings *ns)
