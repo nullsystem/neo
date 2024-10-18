@@ -865,6 +865,10 @@ extern IGameSystem *ViewportClientSystem();
 //-----------------------------------------------------------------------------
 ISourceVirtualReality *g_pSourceVR = NULL;
 
+#ifdef NEO
+extern SpewRetval_t NeoSpewOutput(SpewType_t spewType, const tchar *pMsg);
+#endif
+
 // Purpose: Called when the DLL is first loaded.
 // Input  : engineFactory - 
 // Output : int
@@ -885,6 +889,10 @@ int CHLClient::Init( CreateInterfaceFn appSystemFactory, CreateInterfaceFn physi
 	ConnectTier1Libraries( &appSystemFactory, 1 );
 	ConnectTier2Libraries( &appSystemFactory, 1 );
 	ConnectTier3Libraries( &appSystemFactory, 1 );
+
+#ifdef NEO
+	SpewOutputFunc(&NeoSpewOutput);
+#endif
 
 #ifndef NO_STEAM
 	ClientSteamContext().Activate();

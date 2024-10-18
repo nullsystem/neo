@@ -167,6 +167,46 @@ constexpr WidgetInfo BTNS_INFO[BTNS_TOTAL] = {
 	{ "#GameUI_GameMenu_Quit", nullptr, STATE_QUIT, FLAG_SHOWINGAME | FLAG_SHOWINMAIN },
 };
 
+static char *gSpewBuffer = nullptr;
+static int gSpewOffset = 0;
+static bool gSpewCircular = false; // False = 0->gSpewOffset, True = gSpewOffset->end->start->gSpewOffset
+
+static constexpr int MAX_LINES = 512;
+static constexpr int MAX_BUFPLINE = 1024;
+static constexpr int MAX_SPEW_BUF = MAX_BUFPLINE * MAX_LINES;
+
+SpewRetval_t NeoSpewOutput(SpewType_t spewType, const tchar *pMsg)
+{
+	if (!gSpewBuffer)
+	{
+		gSpewBuffer = (char *)malloc(MAX_SPEW_BUF);
+	}
+	const int iMsgSize = V_strlen(pMsg);
+	// We also want to include the final null character in loop, hence <=
+	// TODO: Encode type in first byte of line?
+	int iOffset = 0;
+	for (int i = 0; i <= iMsgSize; ++i)
+	{
+		if (pMsg[i] == '\n' || pMsg[i] == '\0')
+		{
+			const int iLineSize = i - iOffset;
+			if (iLineSize > 0)
+			{
+				V_memcpy(gSpewBuffer + gSpewOffset, pMsg + iOffset, iLineSize);
+				gSpewOffset += MAX_BUFPLINE;
+				if (gSpewOffset >= MAX_SPEW_BUF)
+				{
+					gSpewOffset = 0;
+					gSpewCircular = true;
+				}
+			}
+			iOffset = i + 1;
+		}
+	}
+
+	return SPEW_CONTINUE;
+}
+
 CNeoRoot::CNeoRoot(VPANEL parent)
 	: EditablePanel(nullptr, "NeoRootPanel")
 	, m_panelCaptureInput(new CNeoRootInput(this))
@@ -492,6 +532,7 @@ void CNeoRoot::OnMainLoop(const NeoUI::Mode eMode)
 		&CNeoRoot::MainLoopSettings,		// STATE_SETTINGS
 		&CNeoRoot::MainLoopNewGame,			// STATE_NEWGAME
 		&CNeoRoot::MainLoopServerBrowser,	// STATE_SERVERBROWSER
+		&CNeoRoot::MainLoopTerminal,		// STATE_TERMINAL
 
 		&CNeoRoot::MainLoopMapList,			// STATE_MAPLIST
 		&CNeoRoot::MainLoopServerDetails,	// STATE_SERVERDETAILS
@@ -1459,6 +1500,127 @@ void CNeoRoot::MainLoopPopup(const MainLoopParam param)
 	NeoUI::EndContext();
 }
 
+void CNeoRoot::MainLoopTerminal(const MainLoopParam param)
+{
+	static char *cmdNamesBuf = nullptr;
+	static int iTotalCmds = 0;
+	static int iMaxCmdSize = 0;
+	static int iTotalBytes = 0;
+	if (!cmdNamesBuf)
+	{
+		// First loop: Fetch the amount of commands and maximum string size
+		const ConCommandBase *conCmd = g_pCVar->GetCommands();
+		while ((conCmd = conCmd->GetNext()))
+		{
+			iMaxCmdSize = max(iMaxCmdSize, V_strlen(conCmd->GetName()));
+			++iTotalCmds;
+		}
+		++iMaxCmdSize;
+
+		// Allocate a big buffer once so the strings goes in at once
+		iTotalBytes = iTotalCmds * iMaxCmdSize;
+		cmdNamesBuf = reinterpret_cast<char *>(calloc(iTotalBytes, sizeof(char)));
+
+		// Second loop: Copy the string over into the singular buffer for cache locality
+		int bufOffset = 0;
+		conCmd = g_pCVar->GetCommands();
+		while ((conCmd = conCmd->GetNext()))
+		{
+			V_strcpy(cmdNamesBuf + bufOffset, conCmd->GetName());
+			bufOffset += iMaxCmdSize;
+		}
+	}
+
+	g_uiCtx.dPanel.wide = GetWide();
+	g_uiCtx.dPanel.tall = GetTall();
+	g_uiCtx.dPanel.x = 0;
+	g_uiCtx.dPanel.y = 0;
+	g_uiCtx.bgColor = COLOR_TRANSPARENT;
+	NeoUI::BeginContext(&g_uiCtx, param.eMode, nullptr, "CtxTerminal");
+	NeoUI::BeginSection(true);
+
+	static constexpr int TERM_LINES = 20;
+	int spewLine = gSpewOffset - (MAX_BUFPLINE * TERM_LINES);
+	if (gSpewCircular && spewLine < 0)
+	{
+		spewLine += MAX_SPEW_BUF;
+	}
+	else if (!gSpewCircular && spewLine < 0)
+	{
+		spewLine = 0;
+	}
+	for (int i = 0; i < TERM_LINES; ++i)
+	{
+		if (spewLine >= MAX_SPEW_BUF)
+		{
+			if (gSpewCircular)
+			{
+				spewLine = 0;
+			}
+			else
+			{
+				break;
+			}
+		}
+		wchar_t wszLine[MAX_BUFPLINE];
+		g_pVGuiLocalize->ConvertANSIToUnicode(gSpewBuffer + spewLine, wszLine, sizeof(wszLine));
+		NeoUI::Label(wszLine);
+
+		spewLine += MAX_BUFPLINE;
+	}
+	g_uiCtx.iWgXPos = static_cast<int>(g_uiCtx.dPanel.wide * 0.1f);
+	static wchar_t wszTermInput[MAX_BUFPLINE] = {};
+	NeoUI::TextEdit(L"> ", wszTermInput, MAX_BUFPLINE);
+	static wchar_t awszCmdSuggestions[5][MAX_BUFPLINE];
+	static int iSuggestionsSize = 0;
+	if (g_uiCtx.bValueEdited)
+	{
+		// Refresh suggestion list
+		iSuggestionsSize = 0;
+		if (wszTermInput[0])
+		{
+			char szTermInput[MAX_BUFPLINE] = {};
+			g_pVGuiLocalize->ConvertUnicodeToANSI(wszTermInput, szTermInput, sizeof(szTermInput));
+
+			for (int iOffset = 0; iOffset < iTotalBytes; iOffset += iMaxCmdSize)
+			{
+				if (V_strstr(cmdNamesBuf + iOffset, szTermInput))
+				{
+					g_pVGuiLocalize->ConvertANSIToUnicode(cmdNamesBuf + iOffset,
+														  awszCmdSuggestions[iSuggestionsSize],
+														  sizeof(awszCmdSuggestions[iSuggestionsSize]));
+					if (++iSuggestionsSize >= 5)
+					{
+						break;
+					}
+				}
+			}
+		}
+	}
+
+	for (int i = 0; i < iSuggestionsSize; ++i)
+	{
+		NeoUI::Label(awszCmdSuggestions[i]);
+	}
+
+	if (NeoUI::Bind(KEY_ESCAPE))
+	{
+		m_state = STATE_ROOT;
+		iSuggestionsSize = 0;
+	}
+	if (NeoUI::Bind(KEY_ENTER))
+	{
+		char szTermCmd[MAX_BUFPLINE] = {};
+		g_pVGuiLocalize->ConvertUnicodeToANSI(wszTermInput, szTermCmd, sizeof(szTermCmd));
+		V_memset(wszTermInput, 0, sizeof(wszTermInput));
+		engine->ClientCmd(szTermCmd);
+		iSuggestionsSize = 0;
+	}
+
+	NeoUI::EndSection();
+	NeoUI::EndContext();
+}
+
 void CNeoRoot::HTTPCallbackRequest(HTTPRequestCompleted_t *request, bool bIOFailure)
 {
 	ISteamHTTP *http = steamapicontext->SteamHTTP();
@@ -1542,21 +1704,26 @@ void CNeoRoot::OnFileSelected(const char *szFullpath)
 
 bool NeoRootCaptureESC()
 {
-	return (g_pNeoRoot && g_pNeoRoot->IsEnabled() && g_pNeoRoot->m_state != STATE_ROOT);
+	return (g_pNeoRoot && g_pNeoRoot->IsEnabled() && g_pNeoRoot->m_state != STATE_ROOT && g_pNeoRoot->m_state != STATE_TERMINAL);
 }
 
 void NeoToggleconsole()
 {
 	if (neo_cl_toggleconsole.GetBool())
 	{
+		const auto prevState = g_pNeoRoot->m_state;
+		g_pNeoRoot->m_state = (prevState == STATE_TERMINAL) ? STATE_ROOT : STATE_TERMINAL;
 		if (engine->IsInGame() && g_pNeoRoot)
 		{
 			g_pNeoRoot->m_state = STATE_ROOT;
 		}
+
 		// NEO JANK (nullsystem): con_enable 1 is required to allow toggleconsole to
 		// work and using the legacy settings will alter that value.
 		// It's in here rather than startup so it doesn't trigger the console on startup
 		ConVarRef("con_enable").SetValue(true);
+#if 0
 		engine->ClientCmd_Unrestricted("toggleconsole");
+#endif
 	}
 }
