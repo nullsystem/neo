@@ -49,6 +49,7 @@ enum RootState
 	STATE_SETTINGS,
 	STATE_NEWGAME,
 	STATE_SERVERBROWSER,
+	STATE_TERMINAL,
 
 	STATE_MAPLIST,
 	STATE_SERVERDETAILS,
@@ -140,6 +141,7 @@ public:
 	void MainLoopSettings(const MainLoopParam param);
 	void MainLoopNewGame(const MainLoopParam param);
 	void MainLoopServerBrowser(const MainLoopParam param);
+	void MainLoopTerminal(const MainLoopParam param);
 	void MainLoopMapList(const MainLoopParam param);
 	void MainLoopServerDetails(const MainLoopParam param);
 	void MainLoopPlayerList(const MainLoopParam param);
