@@ -133,7 +133,7 @@ extern ConVar tf_mm_servermode;
 #ifdef NEO
 #include "neo_mount_original.h"
 #include "neo_version.h"
-#include "neo_player_shared.h"
+extern char gStreamerModeNames[MAX_PLAYERS + 1][MAX_PLAYER_NAME_LENGTH + 1];
 #endif
 
 extern IToolFrameworkServer *g_pToolFrameworkServer;

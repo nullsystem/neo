@@ -174,11 +174,18 @@ extern vgui::IInputInternal *g_InputInternal;
 #include "neo_version.h"
 #include "neo_mount_original.h"
 #include "ui/neo_loading.h"
-#include "neo_player_shared.h"
+extern char gStreamerModeNames[MAX_PLAYERS + 1][MAX_PLAYER_NAME_LENGTH + 1];
 extern bool NeoRootCaptureESC();
 extern CNeoLoading *g_pNeoLoading;
 extern ConVar neo_cl_streamermode_autodetect_obs;
 bool g_bOBSDetected = false;
+
+#ifdef WIN32
+#include <windows.h>
+#include <tchar.h>
+#include <psapi.h>
+#undef CreateEvent
+#endif
 
 #ifdef LINUX
 #include "neo_fixup_glshaders.h"
@@ -1317,7 +1324,38 @@ void CHLClient::PostInit()
 			}
 		}
 #else
-		// NEO TODO (nullsystem): Windows https://learn.microsoft.com/en-us/windows/win32/psapi/enumerating-all-processes
+		// Windows: https://learn.microsoft.com/en-us/windows/win32/psapi/enumerating-all-processes
+		DWORD aProcesses[1024], cbNeeded, cProcesses;
+		unsigned int i;
+		if (EnumProcesses(aProcesses, sizeof(aProcesses), &cbNeeded))
+		{
+			cProcesses = cbNeeded / sizeof(DWORD);
+			for (i = 0; i < cProcesses; i++)
+			{
+				if (aProcesses[i] != 0)
+				{
+					DWORD processID = aProcesses[i];
+					TCHAR szProcessName[MAX_PATH] = TEXT("<unknown>");
+					HANDLE hProcess = OpenProcess(PROCESS_QUERY_INFORMATION |
+						PROCESS_VM_READ,
+						FALSE, processID);
+					if (NULL != hProcess)
+					{
+						HMODULE hMod;
+						DWORD cbNeeded;
+
+						if (EnumProcessModules(hProcess, &hMod, sizeof(hMod),
+							&cbNeeded))
+						{
+							GetModuleBaseName(hProcess, hMod, szProcessName,
+								sizeof(szProcessName) / sizeof(TCHAR));
+						}
+					}
+					Msg("%s (PID: %u)\n", szProcessName, processID);
+					CloseHandle(hProcess);
+				}
+			}
+		}
 #endif
 		ConVarRef("neo_cl_streamermode").SetValue(g_bOBSDetected);
 	}
