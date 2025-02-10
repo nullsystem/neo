@@ -44,6 +44,31 @@ enum
 	#define CNEOGameRulesProxy C_NEOGameRulesProxy
 #endif
 
+enum NeoGameType {
+	NEO_GAME_TYPE_TDM = 0,
+	NEO_GAME_TYPE_CTG,
+	NEO_GAME_TYPE_VIP,
+	NEO_GAME_TYPE_DM,
+	NEO_GAME_TYPE_NUL,
+	NEO_GAME_TYPE_STR,
+
+	NEO_GAME_TYPE__TOTAL // Number of game types
+};
+
+struct NeoGameTypeSettings
+{
+	const char *szGameTypeDisplayName;
+	const wchar_t *wszGameTypeDisplayName;
+	const char *gameTypeName;
+	bool respawns;
+	bool neoRulesThink;
+	bool changeTeamClassLoadoutWhenAlive;
+	bool comp;
+	bool capPrevent;
+};
+#define SZWSZ_NGTS(STR) STR, L"" STR
+extern const NeoGameTypeSettings NEO_GAME_TYPE_SETTINGS[NEO_GAME_TYPE__TOTAL];
+
 class CNEOGameRulesProxy : public CHL2MPGameRulesProxy
 {
 public:
@@ -99,20 +124,7 @@ class C_NEO_Player;
 
 extern ConVar neo_sv_player_restore;
 
-enum NeoGameType {
-	NEO_GAME_TYPE_TDM = 0,
-	NEO_GAME_TYPE_CTG,
-	NEO_GAME_TYPE_VIP,
-	NEO_GAME_TYPE_DM,
-	NEO_GAME_TYPE_NUL,
-	NEO_GAME_TYPE_STR,
-
-	NEO_GAME_TYPE__TOTAL // Number of game types
-};
-
 struct NeoGameTypeSettings;
-
-extern const SZWSZTexts NEO_GAME_TYPE_DESC_STRS[NEO_GAME_TYPE__TOTAL];
 
 enum NeoRoundStatus {
 	Idle = 0,

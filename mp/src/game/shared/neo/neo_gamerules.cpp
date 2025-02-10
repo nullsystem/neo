@@ -189,23 +189,14 @@ static NEOViewVectors g_NEOViewVectors(
 	Vector(16, 16, 60)	  //VEC_CROUCH_TRACE_MAX (m_vCrouchTraceMax)
 );
 
-struct NeoGameTypeSettings {
-	const char* gameTypeName;
-	bool respawns;
-	bool neoRulesThink;
-	bool changeTeamClassLoadoutWhenAlive;
-	bool comp;
-	bool capPrevent;
-};
-
 const NeoGameTypeSettings NEO_GAME_TYPE_SETTINGS[NEO_GAME_TYPE__TOTAL] = {
-//						gametypeName	respawns	neoRulesThink	changeTeamClassLoadoutWhenAlive	comp	capPrevent
-/*NEO_GAME_TYPE_TDM*/	{"TDM",			true,		true,			false,							false,	false},
-/*NEO_GAME_TYPE_CTG*/	{"CTG",			false,		true,			false,							true,	true},
-/*NEO_GAME_TYPE_VIP*/	{"VIP",			false,		true,			false,							true,	true},
-/*NEO_GAME_TYPE_DM*/	{"DM",			true,		true,			false,							false,	false},
-/*NEO_GAME_TYPE_NUL*/	{"NUL",			true,		false,			true,							false,	false},
-/*NEO_GAME_TYPE_STR*/	{"STR",			false,		false,			false,							false,	false},
+//						^GameTypeDisplayName 					gametypeName	respawns	neoRulesThink	changeTeamClassLoadoutWhenAlive	comp	capPrevent
+/*NEO_GAME_TYPE_TDM*/	{SZWSZ_NGTS("Team Deathmatch"), 		"TDM",			true,		true,			false,							false,	false},
+/*NEO_GAME_TYPE_CTG*/	{SZWSZ_NGTS("Capture the Ghost"), 		"CTG",			false,		true,			false,							true,	true},
+/*NEO_GAME_TYPE_VIP*/	{SZWSZ_NGTS("Extract or Kill the VIP"), "VIP",			false,		true,			false,							true,	true},
+/*NEO_GAME_TYPE_DM*/	{SZWSZ_NGTS("Deathmatch"), 				"DM",			true,		true,			false,							false,	false},
+/*NEO_GAME_TYPE_NUL*/	{SZWSZ_NGTS("Free Roam"), 				"NUL",			true,		false,			true,							false,	false},
+/*NEO_GAME_TYPE_STR*/	{SZWSZ_NGTS(""), 						"STR",			false,		false,			false,							false,	false},
 };
 
 #ifdef CLIENT_DLL
@@ -752,7 +743,7 @@ void CNEORules::CheckGameType()
 #ifdef DEBUG
 		for (int i = 0; i < NEO_GAME_TYPE__TOTAL; ++i)
 		{
-			DevMsg("%d | %s: %s\n", i, NEO_GAME_TYPE_DESC_STRS[i].szStr, staticGamemodesCanPick[i] ? "Allowed" : "Not allowed");
+			DevMsg("%d | %s: %s\n", i, NEO_GAME_TYPE_SETTINGS[i].szGameTypeDisplayName, staticGamemodesCanPick[i] ? "Allowed" : "Not allowed");
 		}
 		DevMsg("Pick: %d | Prev: %d\n", m_nGameTypeSelected.Get(), iStaticLastPick);
 #endif
@@ -2194,18 +2185,9 @@ void CNEORules::CreateStandardEntities(void)
 #endif
 }
 
-const SZWSZTexts NEO_GAME_TYPE_DESC_STRS[NEO_GAME_TYPE__TOTAL] = {
-	SZWSZ_INIT("Team Deathmatch"),
-	SZWSZ_INIT("Capture the Ghost"),
-	SZWSZ_INIT("Extract or Kill the VIP"),
-	SZWSZ_INIT("Deathmatch"),
-	SZWSZ_INIT("Free Roam"),
-	SZWSZ_INIT(""),
-};
-
 const char *CNEORules::GetGameDescription(void)
 {
-	return NEO_GAME_TYPE_DESC_STRS[GetGameType()].szStr;
+	return NEO_GAME_TYPE_SETTINGS[GetGameType()].szGameTypeDisplayName;
 }
 
 const CViewVectors *CNEORules::GetViewVectors() const

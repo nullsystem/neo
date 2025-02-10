@@ -686,7 +686,7 @@ void CNeoRoot::MainLoopRoot(const MainLoopParam param)
 			// Show the current server's information
 			NeoUI::Label(L"Hostname:", m_wszHostname);
 			NeoUI::Label(L"Map:", m_wszMap);
-			NeoUI::Label(L"Game mode:", NEO_GAME_TYPE_DESC_STRS[NEORules()->GetGameType()].wszStr);
+			NeoUI::Label(L"Game mode:", NEO_GAME_TYPE_SETTINGS[NEORules()->GetGameType()].wszGameTypeDisplayName);
 			// TODO: more info, g_PR, scoreboard stuff, etc...
 		}
 		else
