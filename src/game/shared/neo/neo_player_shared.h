@@ -331,7 +331,7 @@ int DmgLineStr(char* infoLine, const int infoLineMax,
 	const char* dmgerName, const char* dmgerClass,
 	const AttackersTotals &totals);
 
-void KillerLineStr(char* killByLine, const int killByLineMax,
+[[deprecated]] void KillerLineStr(char* killByLine, const int killByLineMax,
 	CNEO_Player* neoAttacker, const CNEO_Player* neoVictim, const char* killedWith = "");
 
 [[nodiscard]] auto StrToInt(std::string_view strView) -> std::optional<int>;

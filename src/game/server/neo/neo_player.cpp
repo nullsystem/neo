@@ -1610,6 +1610,7 @@ bool CNEO_Player::ClientCommand( const CCommand &args )
 		switch (m_eMenuSelectType)
 		{
 		case MENU_SELECT_TYPE_DMG:
+#if 0 // TODO: Remove/Replace?
 			if (m_iDmgMenuCurPage <= 0)
 			{
 				return true;
@@ -1641,6 +1642,7 @@ bool CNEO_Player::ClientCommand( const CCommand &args )
 			default:
 				break;
 			}
+#endif
 			break;
 		case MENU_SELECT_TYPE_PAUSE:
 			m_eMenuSelectType = MENU_SELECT_TYPE_NONE;
@@ -1888,14 +1890,17 @@ void CNEO_Player::StartShowDmgStats(const CTakeDamageInfo* info)
 		short attackerIdx = 0;
 		auto* neoAttacker = info ? dynamic_cast<CNEO_Player*>(info->GetAttacker()) : NULL;
 		const char* killedWithName = "";
-		if (neoAttacker && neoAttacker->entindex() != entindex())
+		if (neoAttacker)
 		{
 			attackerIdx = static_cast<short>(neoAttacker->entindex());
-			auto* killedWithInflictor = info->GetInflictor();
-			const bool inflictorIsPlayer = killedWithInflictor ? !Q_strcmp(killedWithInflictor->GetDebugName(), "player") : false;
-			killedWithName = killedWithInflictor ? (inflictorIsPlayer ? neoAttacker->m_hActiveWeapon->GetPrintName() : killedWithInflictor->GetDebugName()) : "";
-			if (!Q_strcmp(killedWithName, "neo_grenade_frag")) { killedWithName = "Frag Grenade"; }
-			if (!Q_strcmp(killedWithName, "neo_deployed_detpack")) { killedWithName = "Remote Detpack"; }
+			if (neoAttacker->entindex() != entindex())
+			{
+				auto* killedWithInflictor = info->GetInflictor();
+				const bool inflictorIsPlayer = killedWithInflictor ? !Q_strcmp(killedWithInflictor->GetDebugName(), "player") : false;
+				killedWithName = killedWithInflictor ? (inflictorIsPlayer ? neoAttacker->m_hActiveWeapon->GetPrintName() : killedWithInflictor->GetDebugName()) : "";
+				if (!Q_strcmp(killedWithName, "neo_grenade_frag")) { killedWithName = "Frag Grenade"; }
+				if (!Q_strcmp(killedWithName, "neo_deployed_detpack")) { killedWithName = "Remote Detpack"; }
+			}
 		}
 		WRITE_SHORT(attackerIdx);
 		WRITE_STRING(killedWithName);
