@@ -615,6 +615,8 @@ void CNeoRoot::MainLoopRoot(const MainLoopParam param)
 	const int iRightXPos = iBtnPlaceXMid + (iBtnWide / 2) + iMarginHalf;
 	int iRightSideYStart = (iTitleMarginTop + (2 * iTitleNHeight));
 
+	static Color COLOR_NEOTITLE(255, 255, 255, 255);
+
 	// Draw top steam section portion
 	{
 		// Draw title

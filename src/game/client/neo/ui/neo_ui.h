@@ -44,9 +44,6 @@
  * For a better example, just take a look at the CNeoRoot source code.
  *
  * NEO TODO (nullsystem)
- * - Change how styling works
- * 		- Colors
- * 		- Padding/margins
  * - Cut/copy/paste for text edits
  */
 
@@ -139,14 +136,26 @@ struct DynWidgetInfos
 	bool bCannotActive;
 };
 
+struct ColorBgFg
+{
+	Color bg;
+	Color fg;
+};
+
+struct Theme
+{
+	ColorBgFg normal; // Normal non-active/non-hot state
+	ColorBgFg hot;    // Hot widget state
+	ColorBgFg active; // Active widget state
+	ColorBgFg frame;  // Section background
+};
+
 struct Context
 {
 	Mode eMode;
 	ButtonCode_t eCode;
 	wchar_t unichar;
-	Color bgColor;
-	Color selectBgColor;
-	Color normalBgColor;
+	Theme theme;
 
 	// Mouse handling
 	int iMouseAbsX;
@@ -217,7 +226,7 @@ struct Context
 	CUtlHashtable<CUtlConstString, int> htTexMap;
 };
 
-struct GetMouseinFocusedRet
+struct WidgetStateInfo
 {
 	bool bActive;
 	bool bHot;
@@ -241,21 +250,13 @@ struct LabelExOpt
 // NEO TODO (nullsystem): Depreciate fixed colors, instead define outside of NeoUI and give proper way to
 // define color schemes
 // !!!Also the change to COLOR_NEOPANELACCENTBG makes element invisible! Should never been set to fully transparent!!!
-#define COLOR_NEOPANELNORMALBG Color(0, 0, 0, 170)
-#define COLOR_NEOPANELSELECTBG Color(0, 0, 0, 170)
-#define COLOR_NEOPANELACCENTBG Color(0, 0, 0, 0) // TODO: Why is this invisible now?
-#define COLOR_NEOPANELTEXTNORMAL Color(255, 255, 255, 255)//Color(200, 200, 200, 255)
-#define COLOR_NEOPANELTEXTBRIGHT Color(255, 255, 255, 255)
-#define COLOR_NEOPANELPOPUPBG Color(0, 0, 0, 170)
-#define COLOR_NEOPANELFRAMEBG Color(0, 0, 0, 170)
-#define COLOR_NEOTITLE Color(255, 255, 255, 255)//Color(200, 200, 200, 255)
-#define COLOR_NEOPANELBAR Color(20, 20, 20, 255)
-#define COLOR_NEOPANELMICTEST Color(30, 90, 30, 255)
+
 
 enum WidgetFlag
 {
 	WIDGETFLAG_NONE = 0,
 	WIDGETFLAG_SKIPACTIVE = 1 << 0,
+	WIDGETFLAG_SKIPMOUSE = 1 << 1,
 };
 
 void FreeContext(NeoUI::Context *pCtx);
@@ -264,13 +265,17 @@ void BeginContext(NeoUI::Context *pNextCtx, const NeoUI::Mode eMode, const wchar
 void EndContext();
 void BeginSection(const bool bDefaultFocus = false);
 void EndSection();
-void BeginWidget(const WidgetFlag eWidgetFlag = WIDGETFLAG_NONE);
-void EndWidget(const GetMouseinFocusedRet wdgState);
+WidgetStateInfo BeginWidget(const WidgetFlag eWidgetFlag = WIDGETFLAG_NONE);
+void EndWidget();
 
 void SetPerRowLayout(const int iColTotal, const int *iColProportions = nullptr, const int iRowHeight = -1);
-void SwapFont(const EFont eFont, const bool bForce = false);
-void SwapColorNormal(const Color &color);
 void MultiWidgetHighlighter(const int iTotalWidgets);
+
+// Theming
+void SwapFont(const EFont eFont, const bool bForce = false);
+
+// Deprecated theming TODO: Remove
+[[deprecated]] void SwapColorNormal(const Color &color);
 
 // Widgets
 /*1W*/ void Pad();

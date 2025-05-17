@@ -24,6 +24,14 @@ struct NeoNewGame
 	bool bUseSteamNetworking = false;
 };
 
+#define COLOR_NEOPANELNORMALBG Color(0, 0, 0, 170)
+#define COLOR_NEOPANELSELECTBG Color(0, 0, 0, 170)
+#define COLOR_NEOPANELACCENTBG Color(0, 0, 0, 0)
+#define COLOR_NEOPANELTEXTNORMAL Color(200, 200, 200, 255)
+#define COLOR_NEOPANELTEXTBRIGHT Color(255, 255, 255, 255)
+#define COLOR_NEOPANELPOPUPBG Color(0, 0, 0, 170)
+#define COLOR_NEOPANELFRAMEBG Color(0, 0, 0, 170)
+
 class CNeoRoot;
 // NEO JANK (nullsystem): This is really more of a workaround that
 // keyboard inputs are not sent to panels (even if they're marked

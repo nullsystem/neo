@@ -37,75 +37,75 @@ void SwapColorNormal(const Color &color)
 
 void MultiWidgetHighlighter(const int iTotalWidgets)
 {
-	if (c->eMode == MODE_PAINT)
+	if (c->eMode != MODE_PAINT)
 	{
-		// Peek-forward what the area of the multiple widgets will cover without modifying the context
-		int iMulLayoutX = c->iLayoutX;
-		int iMulLayoutY = c->iLayoutY;
-		int iFirstLayoutX = iMulLayoutX;
-		int iFirstLayoutY = iMulLayoutY;
-		int iMulIdxRowParts = c->iIdxRowParts;
-		int iXWide = 0;
-		for (int i = 0; i < iTotalWidgets; ++i)
+		return;
+	}
+
+	// Peek-forward what the area of the multiple widgets will cover without modifying the context
+	int iMulLayoutX = c->iLayoutX;
+	int iMulLayoutY = c->iLayoutY;
+	int iFirstLayoutX = iMulLayoutX;
+	int iFirstLayoutY = iMulLayoutY;
+	int iMulIdxRowParts = c->iIdxRowParts;
+	int iXWide = 0;
+	for (int i = 0; i < iTotalWidgets; ++i)
+	{
+		if (iMulIdxRowParts < 0 || iMulIdxRowParts >= (c->layout.iRowPartsTotal - 1))
 		{
-			if (iMulIdxRowParts < 0 || iMulIdxRowParts >= (c->layout.iRowPartsTotal - 1))
+			iMulLayoutX = 0;
+			iMulLayoutY += (iMulIdxRowParts < 0) ? 0 : c->layout.iRowTall;
+			iMulIdxRowParts = 0;
+		}
+		else
+		{
+			if (c->layout.iRowParts)
 			{
-				iMulLayoutX = 0;
-				iMulLayoutY += (iMulIdxRowParts < 0) ? 0 : c->layout.iRowTall;
-				iMulIdxRowParts = 0;
+				iMulLayoutX += (c->layout.iRowParts[iMulIdxRowParts] / 100.0f) * c->dPanel.wide;
 			}
 			else
 			{
-				if (c->layout.iRowParts)
-				{
-					iMulLayoutX += (c->layout.iRowParts[iMulIdxRowParts] / 100.0f) * c->dPanel.wide;
-				}
-				else
-				{
-					iMulLayoutX += (1.0f / static_cast<float>(c->layout.iRowPartsTotal)) * c->dPanel.wide;
-				}
-				++iMulIdxRowParts;
+				iMulLayoutX += (1.0f / static_cast<float>(c->layout.iRowPartsTotal)) * c->dPanel.wide;
 			}
-			if (i == 0)
-			{
-				iFirstLayoutX = iMulLayoutX;
-				iFirstLayoutY = iMulLayoutY;
-			}
-
-			iXWide += (iMulIdxRowParts == (c->layout.iRowPartsTotal - 1))
-					? c->dPanel.wide - iMulLayoutX
-					: (c->layout.iRowParts)
-					  ? (c->layout.iRowParts[iMulIdxRowParts] / 100.0f) * c->dPanel.wide
-					  : (1.0f / static_cast<float>(c->layout.iRowPartsTotal)) * c->dPanel.wide;
+			++iMulIdxRowParts;
 		}
-		vgui::IntRect hightlightRect = {
-			.x0 = c->dPanel.x + iFirstLayoutX,
-			.y0 = c->dPanel.y + iFirstLayoutY,
-			.x1 = c->dPanel.x + iFirstLayoutX + iXWide,
-			.y1 = c->dPanel.y + iFirstLayoutY + c->layout.iRowTall,
-		};
-
-		// Mostly so the highlight can apply to multi-widget's labels
-		const bool bMouseIn = IN_BETWEEN_EQ(hightlightRect.x0, c->iMouseAbsX, hightlightRect.x1)
-				&& IN_BETWEEN_EQ(hightlightRect.y0, c->iMouseAbsY, hightlightRect.y1);
-		if (bMouseIn)
+		if (i == 0)
 		{
-			c->iHot = c->iWidget;
-			c->iHotSection = c->iSection;
+			iFirstLayoutX = iMulLayoutX;
+			iFirstLayoutY = iMulLayoutY;
 		}
 
-		// Apply highlight if it's hot/active
-		const bool bHot = c->iHotSection == c->iSection && IN_BETWEEN_AR(c->iWidget, c->iHot, c->iWidget + iTotalWidgets);
-		const bool bActive = c->iActiveSection == c->iSection && IN_BETWEEN_AR(c->iWidget, c->iActive, c->iWidget + iTotalWidgets);
-		if (bHot || bActive)
-		{
-			vgui::surface()->DrawSetColor(c->selectBgColor);
-			if (bActive)
-			{
-				vgui::surface()->DrawSetTextColor(COLOR_NEOPANELTEXTBRIGHT);
-			}
-			vgui::surface()->DrawFilledRectArray(&hightlightRect, 1);
-		}
+		iXWide += (iMulIdxRowParts == (c->layout.iRowPartsTotal - 1))
+				? c->dPanel.wide - iMulLayoutX
+				: (c->layout.iRowParts)
+				  ? (c->layout.iRowParts[iMulIdxRowParts] / 100.0f) * c->dPanel.wide
+				  : (1.0f / static_cast<float>(c->layout.iRowPartsTotal)) * c->dPanel.wide;
+	}
+	vgui::IntRect hightlightRect = {
+		.x0 = c->dPanel.x + iFirstLayoutX,
+		.y0 = c->dPanel.y + iFirstLayoutY,
+		.x1 = c->dPanel.x + iFirstLayoutX + iXWide,
+		.y1 = c->dPanel.y + iFirstLayoutY + c->layout.iRowTall,
+	};
+
+	// Mostly so the highlight can apply to multi-widget's labels
+	const bool bMouseIn = IN_BETWEEN_EQ(hightlightRect.x0, c->iMouseAbsX, hightlightRect.x1)
+			&& IN_BETWEEN_EQ(hightlightRect.y0, c->iMouseAbsY, hightlightRect.y1);
+	if (bMouseIn)
+	{
+		c->iHot = c->iWidget;
+		c->iHotSection = c->iSection;
+	}
+
+	// Apply highlight if it's hot/active
+	const bool bHot = c->iHotSection == c->iSection && IN_BETWEEN_AR(c->iWidget, c->iHot, c->iWidget + iTotalWidgets);
+	const bool bActive = c->iActiveSection == c->iSection && IN_BETWEEN_AR(c->iWidget, c->iActive, c->iWidget + iTotalWidgets);
+	if (bHot || bActive)
+	{
+		const ColorBgFg &picked = (bActive) ? c->theme.active : c->theme.hot;
+		vgui::surface()->DrawSetColor(picked.bg);
+		vgui::surface()->DrawSetTextColor(picked.fg);
+		vgui::surface()->DrawFilledRectArray(&hightlightRect, 1);
 	}
 }
 
@@ -501,15 +501,11 @@ void BeginWidget(const WidgetFlag eWidgetFlag)
 	c->wdgInfos[c->iWidget].bCannotActive = (eWidgetFlag & WIDGETFLAG_SKIPACTIVE);
 }
 
-void EndWidget(const GetMouseinFocusedRet wdgState)
+void EndWidget()
 {
 	++c->iWidget;
-	// NEO TODO (nullsystem): Will refactor when dealing with styling/color refactor
-	if (wdgState.bActive || wdgState.bHot)
-	{
-		vgui::surface()->DrawSetColor(c->normalBgColor);
-		vgui::surface()->DrawSetTextColor(COLOR_NEOPANELTEXTNORMAL);
-	}
+	//vgui::surface()->DrawSetColor(c->savedDrawBgColor);
+	//vgui::surface()->DrawSetTextColor(c->savedDrawFgColor);
 }
 
 void Pad()
@@ -845,7 +841,6 @@ bool Texture(const char *szTexturePath, const int x, const int y, const int widt
 						iStartY + (iDispTall * flPartialShow),
 						0.0f, 0.0f, 1.0f, flPartialShow);
 				}
-				vgui::surface()->DrawSetColor(c->normalBgColor);
 			}
 			return true;
 		}
@@ -1057,13 +1052,7 @@ void Tabs(const wchar_t **wszLabelsList, const int iLabelsSize, int *iIndex)
 			{
 				// NEO NOTE (nullsystem): On the final tab, just expand it to the end width as iTabWide isn't always going
 				// to give a properly aligned width
-#if 0
-				vgui::surface()->DrawSetColor(bHoverTab ? COLOR_NEOPANELSELECTBG : c->normalBgColor);
-#else
-				// NEO TODO (nullsystem): The altered color scheme makes some element invisible,
-				// so will refactor this when I get to the styling refactoring
-				vgui::surface()->DrawSetColor(COLOR_NEOPANELSELECTBG);
-#endif
+				vgui::surface()->DrawSetColor(c->theme.hot.bg);
 				vgui::surface()->DrawFilledRectArray(&tabRect, 1);
 			}
 			const wchar_t *wszText = wszLabelsList[i];
@@ -1078,6 +1067,7 @@ void Tabs(const wchar_t **wszLabelsList, const int iLabelsSize, int *iIndex)
 		vgui::surface()->GetTextSize(c->fonts[c->eFont].hdl, L"F##", iFontWidth, iFontHeight);
 		const int iHintYPos = c->dPanel.y + (iFontHeight / 2);
 
+		vgui::surface()->DrawSetTextColor(c->theme.normal.fg);
 		vgui::surface()->DrawSetTextPos(c->dPanel.x - c->iMarginX - iFontWidth, iHintYPos);
 		vgui::surface()->DrawPrintText(L"F 1", 3);
 		vgui::surface()->DrawSetTextPos(c->dPanel.x + c->dPanel.wide + c->iMarginX, iHintYPos);

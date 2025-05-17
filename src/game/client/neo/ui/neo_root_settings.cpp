@@ -824,6 +824,7 @@ void NeoSettings_Audio(NeoSettings *ns)
 			pAudio->flSpeakingVol = flNowSpeakingVol;
 			pAudio->flLastFetchInterval = gpGlobals->curtime;
 		}
+		static Color COLOR_NEOPANELMICTEST(30, 90, 30, 255);
 		vgui::surface()->DrawSetColor(COLOR_NEOPANELMICTEST);
 		vgui::surface()->DrawFilledRect(g_uiCtx.rWidgetArea.x0,
 										g_uiCtx.rWidgetArea.y0 + g_uiCtx.layout.iRowTall,

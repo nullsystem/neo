@@ -57,6 +57,18 @@ void CNeoLoading::ApplySchemeSettings(vgui::IScheme *pScheme)
 		m_uiCtx.fonts[i].hdl = pScheme->GetFont(FONT_NAMES[i], true);
 	}
 
+	m_uiCtx.theme.normal.bg = ;
+	m_uiCtx.theme.normal.fg = COLOR_NEOPANELTEXTNORMAL;
+
+	m_uiCtx.theme.select.bg = ;
+	m_uiCtx.theme.select.fg = ;
+
+	m_uiCtx.theme.accent.bg = ;
+	m_uiCtx.theme.accent.fg = COLOR_NEOPANELTEXTBRIGHT;
+
+	m_uiCtx.theme.frame.bg = COLOR_NEOPANELFRAMEBG;
+	m_uiCtx.theme.frame.fg = COLOR_NEOPANELTEXTNORMAL;
+
 	ResetSizes(wide, tall);
 }
 
