@@ -22,6 +22,14 @@ static Context *c = &g_emptyCtx;
 const int ROWLAYOUT_TWOSPLIT[] = { 40, -1 };
 static constexpr int WDGINFO_ALLOC_STEPS = 64;
 
+void SetTheme(const Theme &theme)
+{
+	if (c)
+	{
+		V_memcpy(&(c->theme), &theme, sizeof(Theme));
+	}
+}
+
 void SwapFont(const EFont eFont, const bool bForce)
 {
 	if (c->eMode != MODE_PAINT || (!bForce && (c->eFont == eFont))) return;
