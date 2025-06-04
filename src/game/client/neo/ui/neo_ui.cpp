@@ -6,6 +6,7 @@
 #include <filesystem.h>
 #include <stb_image.h>
 #include <materialsystem/imaterial.h>
+#include <steam/isteaminput.h>
 
 #include "neo_misc.h"
 
@@ -21,6 +22,47 @@ static inline Context g_emptyCtx;
 static Context *c = &g_emptyCtx;
 const int ROWLAYOUT_TWOSPLIT[] = { 40, -1 };
 static constexpr int WDGINFO_ALLOC_STEPS = 64;
+
+struct PrivateNeoUISteamInputContext
+{
+	bool bHasInit = false;
+
+	// Last actions
+	ESteamInputType eInpType;
+	bool bIsPSController;
+	EInputActionOrigin arEInpActOrigins[STEAM_INPUT_MAX_ORIGINS];
+	int iInpActOriginsSize;
+};
+static inline PrivateNeoUISteamInputContext g_steamInpCtx;
+
+void NeoUISteamInputActionEventCallback(SteamInputActionEvent_t *pSteamInputActionEvent)
+{
+	Assert(SteamInput());
+	const InputActionSetHandle_t hdlActionSet = SteamInput()->GetCurrentActionSet(pSteamInputActionEvent->controllerHandle);
+
+	switch (pSteamInputActionEvent->eEventType)
+	{
+	case ESteamInputActionEventType_DigitalAction:
+	{
+		g_steamInpCtx.iInpActOriginsSize = SteamInput()->GetDigitalActionOrigins(
+				pSteamInputActionEvent->controllerHandle, hdlActionSet,
+				pSteamInputActionEvent->digitalAction.actionHandle, g_steamInpCtx.arEInpActOrigins);
+	} break;
+	case ESteamInputActionEventType_AnalogAction:
+	{
+		g_steamInpCtx.iInpActOriginsSize = SteamInput()->GetAnalogActionOrigins(
+				pSteamInputActionEvent->controllerHandle, hdlActionSet,
+				pSteamInputActionEvent->analogAction.actionHandle, g_steamInpCtx.arEInpActOrigins);
+	} break;
+	}
+
+	const ESteamInputType eInpType = SteamInput()->GetInputTypeForHandle(pSteamInputActionEvent->controllerHandle);
+	g_steamInpCtx.eInpType = eInpType;
+	g_steamInpCtx.bIsPSController = eInpType == k_ESteamInputType_PS3Controller
+			|| eInpType == k_ESteamInputType_PS4Controller
+			|| eInpType == k_ESteamInputType_PS5Controller;
+	Msg("Steam inp callback: %d %d | %d\n", eInpType, g_steamInpCtx.bIsPSController, g_steamInpCtx.iInpActOriginsSize);
+}
 
 void SwapFont(const EFont eFont, const bool bForce)
 {
@@ -227,6 +269,38 @@ void BeginContext(NeoUI::Context *pNextCtx, const NeoUI::Mode eMode, const wchar
 			c->iHot = c->iActive;
 		}
 		c->eKeyHints = (c->eCode <= KEY_LAST) ? KEYHINTS_KEYBOARD : KEYHINTS_CONTROLLER;
+
+		if (SteamInput())
+		{
+			if (!g_steamInpCtx.bHasInit)
+			{
+				Msg("Initialized steam input callback\n");
+#if 0
+				//SteamInput()->Init(false);
+				//SteamInput()->EnableDeviceCallbacks();
+				//SteamInput()->EnableActionEventCallbacks(NeoUISteamInputActionEventCallback);
+#endif
+				g_steamInpCtx.bHasInit = true;
+			}
+			//SteamInput()->RunFrame();
+			//SteamInput()->ActivateActionSet(STEAM_INPUT_HANDLE_ALL_CONTROLLERS, menuSetHandle);
+
+			InputHandle_t hdlControllers[STEAM_INPUT_MAX_COUNT];
+			const int iHdlControllersSize = SteamInput()->GetConnectedControllers(hdlControllers);
+			bool bIsPSController = false;
+			for (int i = 0; i < iHdlControllersSize; ++i)
+			{
+				const ESteamInputType eInpType = SteamInput()->GetInputTypeForHandle(hdlControllers[i]);
+				bIsPSController = eInpType == k_ESteamInputType_PS3Controller
+						|| eInpType == k_ESteamInputType_PS4Controller
+						|| eInpType == k_ESteamInputType_PS5Controller;
+				if (bIsPSController)
+				{
+					break;
+				}
+			}
+			Msg("iHdlControllersSize: %d | %d\n", iHdlControllersSize, bIsPSController);
+		}
 		break;
 	case MODE_MOUSERELEASED:
 		c->eMousePressedStart = MOUSESTART_NONE;
