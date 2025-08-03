@@ -111,6 +111,15 @@ ActionResult< CNEOBot >	CNEOBotMainAction::Update( CNEOBot *me, float interval )
 	FireWeaponAtEnemy( me );
 	Dodge( me );
 
+	if (me->GetIntentionInterface()->ShouldWalk(me) == ANSWER_YES)
+	{
+		me->GetLocomotionInterface()->Walk();
+	}
+	else
+	{
+		me->GetLocomotionInterface()->Run();
+	}
+
 	return Continue();
 }
 
@@ -416,6 +425,36 @@ QueryResultType CNEOBotMainAction::ShouldAttack( const INextBot *meBot, const CK
 QueryResultType	CNEOBotMainAction::ShouldHurry( const INextBot *meBot ) const
 {
 	return ANSWER_UNDEFINED;
+}
+
+QueryResultType CNEOBotMainAction::ShouldWalk(const INextBot *me) const
+{
+	auto *neoMe = static_cast<const CNEOBot *>(me);
+	if (neoMe->GetClass() == NEO_CLASS_ASSAULT)
+	{
+		// NEO TODO (nullsystem): Very very basic walking/sprinting logic
+		// at the moment. Would be better for like recon to utilize
+		// run-boost jumps and assault more sophisticated logic on
+		// when/when not to run. But this is suitable for now.
+		//
+		// If playing assault, try to not always sprint and recover sprint AUX
+		// when it can
+		const float flTimeSinceRanOutSprint = gpGlobals->curtime - neoMe->m_flRanOutSprintTime;
+		static const constexpr float FL_SPRINTRECOVER_MINTIME = 10.0f;
+		static const constexpr float FL_SPRINTRECOVER_MAXTIME = 40.0f;
+		static const constexpr float FL_MIN_AUXPOWER = 70.0f;
+		const bool bShouldSprint = (flTimeSinceRanOutSprint >= FL_SPRINTRECOVER_MINTIME &&
+				((flTimeSinceRanOutSprint < FL_SPRINTRECOVER_MAXTIME && const_cast<CNEOBot *>(neoMe)->SuitPower_GetCurrentPercentage() >= FL_MIN_AUXPOWER) ||
+				flTimeSinceRanOutSprint >= FL_SPRINTRECOVER_MAXTIME));
+		if (!bShouldSprint)
+		{
+			return ANSWER_YES;
+		}
+	}
+
+	// Walk if reloading or firing
+	CNEOBaseCombatWeapon *myWeapon = static_cast<CNEOBaseCombatWeapon*>(neoMe->GetActiveWeapon());
+	return (myWeapon && (myWeapon->m_bInReload || myWeapon->m_bFiringWholeClip)) ? ANSWER_YES : ANSWER_NO;
 }
 
 
