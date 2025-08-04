@@ -120,6 +120,15 @@ ActionResult< CNEOBot >	CNEOBotMainAction::Update( CNEOBot *me, float interval )
 		me->GetLocomotionInterface()->Run();
 	}
 
+	if (me->GetIntentionInterface()->ShouldAim(me) == ANSWER_YES)
+	{
+		me->PressAimButton();
+	}
+	else
+	{
+		me->ReleaseAimButton();
+	}
+
 	return Continue();
 }
 
@@ -455,6 +464,16 @@ QueryResultType CNEOBotMainAction::ShouldWalk(const INextBot *me) const
 	// Walk if reloading or firing
 	CNEOBaseCombatWeapon *myWeapon = static_cast<CNEOBaseCombatWeapon*>(neoMe->GetActiveWeapon());
 	return (myWeapon && (myWeapon->m_bInReload || myWeapon->m_bFiringWholeClip)) ? ANSWER_YES : ANSWER_NO;
+}
+
+QueryResultType CNEOBotMainAction::ShouldAim(const INextBot *me) const
+{
+	auto *neoMe = static_cast<const CNEOBot *>(me);
+	return (neoMe->m_nButtons & IN_ATTACK || neoMe->m_afButtonPressed & IN_ATTACK || neoMe->m_afButtonLast & IN_ATTACK) ? ANSWER_YES : ANSWER_NO;
+#if 0
+	CNEOBaseCombatWeapon *myWeapon = static_cast<CNEOBaseCombatWeapon*>(neoMe->GetActiveWeapon());
+	return (myWeapon && myWeapon->m_bFiringWholeClip) ? ANSWER_YES : ANSWER_NO;
+#endif
 }
 
 

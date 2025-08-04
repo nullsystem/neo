@@ -2325,12 +2325,7 @@ INextBotEventResponder *CNEOBotIntention::NextContainedResponder(INextBotEventRe
 
 QueryResultType CNEOBotIntention::ShouldWalk(const INextBot *me) const
 {
-	QueryResultType result = m_behavior->ShouldWalk( me );
-	if ( result != ANSWER_UNDEFINED )
-	{
-		return result;
-	}
-	return ANSWER_UNDEFINED;
+	return m_behavior->ShouldWalk( me );
 }
 
 QueryResultType CNEOBotBehavior::ShouldWalk(const INextBot *me) const
@@ -2354,6 +2349,42 @@ QueryResultType CNEOBotBehavior::ShouldWalk(const INextBot *me) const
 			while( action && result == ANSWER_UNDEFINED )
 			{
 				result = action->ShouldWalk(me);
+				action = static_cast<CNEOBotMainAction *>(action->GetActionBuriedUnderMe());
+			}
+
+			action = containingAction;
+		}
+	}
+
+	return result;
+}
+
+QueryResultType CNEOBotIntention::ShouldAim(const INextBot *me) const
+{
+	return m_behavior->ShouldAim( me );
+}
+
+QueryResultType CNEOBotBehavior::ShouldAim(const INextBot *me) const
+{
+	QueryResultType result = ANSWER_UNDEFINED;
+
+	auto *neoAction = static_cast<CNEOBotMainAction *>(m_action);
+	if ( neoAction )
+	{
+		// find innermost child action
+		CNEOBotMainAction *action;
+		for( action = neoAction; action->m_child; action = static_cast<CNEOBotMainAction *>(action->m_child) )
+			;
+
+		// work our way through our containers
+		while( action && result == ANSWER_UNDEFINED )
+		{
+			CNEOBotMainAction *containingAction = static_cast<CNEOBotMainAction *>(action->m_parent);
+
+			// work our way up the stack
+			while( action && result == ANSWER_UNDEFINED )
+			{
+				result = action->ShouldAim(me);
 				action = static_cast<CNEOBotMainAction *>(action->GetActionBuriedUnderMe());
 			}
 

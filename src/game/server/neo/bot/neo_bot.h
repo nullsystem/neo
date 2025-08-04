@@ -55,6 +55,7 @@ public:
 	INextBotEventResponder *NextContainedResponder(INextBotEventResponder *current) const override;
 
 	QueryResultType ShouldWalk(const INextBot *me) const final;
+	QueryResultType ShouldAim(const INextBot *me) const final;
 
 private:
 	CNEOBotBehavior *m_behavior;
@@ -478,6 +479,7 @@ public:
 	virtual ~CNEOBotBehavior() {}
 
 	QueryResultType ShouldWalk(const INextBot *me) const final;
+	QueryResultType ShouldAim(const INextBot *me) const final;
 };
 
 inline void CNEOBot::SetTeleportWhere(const CUtlStringList& teleportWhereName)
