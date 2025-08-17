@@ -54,7 +54,8 @@ public:
 	INextBotEventResponder *FirstContainedResponder() const override;
 	INextBotEventResponder *NextContainedResponder(INextBotEventResponder *current) const override;
 
-	QueryResultType ShouldWalk(const CNEOBot *me) const final;
+	QueryResultType ShouldWalk(const CNEOBot *me, const QueryResultType qShouldAimQuery) const final;
+	QueryResultType ShouldAim(const CNEOBot *me, const bool bWepHasClip) const final;
 
 private:
 	CNEOBotBehavior *m_behavior;
@@ -418,6 +419,8 @@ public:
 
 	bool IsFiring() const;
 	bool m_bOnTarget = false;
+	QueryResultType m_qPrevShouldAim = ANSWER_NO;
+	float m_flLastShouldAimTime = 0.0f;
 
 private:
 	CNEOBotLocomotion *m_locomotor;
@@ -498,7 +501,8 @@ public:
 	CNEOBotBehavior(CNEOBotMainAction *initialAction, const char *name = "") : Behavior<CNEOBot>(initialAction, name) {}
 	virtual ~CNEOBotBehavior() {}
 
-	QueryResultType ShouldWalk(const CNEOBot *me) const final;
+	QueryResultType ShouldWalk(const CNEOBot *me, const QueryResultType qShouldAimQuery) const final;
+	QueryResultType ShouldAim(const CNEOBot *me, const bool bWepHasClip) const final;
 };
 
 inline void CNEOBot::SetTeleportWhere(const CUtlStringList& teleportWhereName)
