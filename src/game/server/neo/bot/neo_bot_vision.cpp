@@ -126,7 +126,7 @@ float CNEOBotVision::GetMinRecognizeTime( void ) const
 	case CNEOBot::EASY:	return 1.0f;
 	case CNEOBot::NORMAL:	return 0.5f;
 	case CNEOBot::HARD:	return 0.3f;
-	case CNEOBot::EXPERT:	return 0.2f;
+	case CNEOBot::EXPERT:	return 0.0f; //0.2f;
 	}
 
 	return 1.0f;

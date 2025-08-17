@@ -226,6 +226,24 @@ public:
 
 		NUM_DIFFICULTY_LEVELS
 	};
+
+	enum EPlayerFlags_
+	{
+		PLAYER_FLAG_DEFAULT = 0,
+		PLAYER_FLAG_HEAD_AIMER = 1 << 0,
+		PLAYER_FLAG_NEVER_LEAN = 1 << 1,
+	};
+	typedef int EPlayerFlags;
+
+	struct PlayerInfo
+	{
+		char szName[MAX_PLAYER_NAME_LENGTH];
+		DifficultyType eDifficulty;
+		EPlayerFlags flags;
+		float flMinRecognizeTime;
+	};
+	PlayerInfo m_info;
+
 	DifficultyType GetDifficulty(void) const;
 	void SetDifficulty(DifficultyType difficulty);
 	bool IsDifficulty(DifficultyType skill) const;

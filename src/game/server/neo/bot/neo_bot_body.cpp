@@ -15,7 +15,7 @@ float CNEOBotBody::GetHeadAimTrackingInterval( void ) const
 	switch( me->GetDifficulty() )
 	{
 	case CNEOBot::EXPERT:
-		return 0.05f;
+		return 0.0f;//0.05f;
 
 	case CNEOBot::HARD:
 		return 0.1f;

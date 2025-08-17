@@ -128,7 +128,7 @@ float CHL2MPBotVision::GetMinRecognizeTime( void ) const
 	case CHL2MPBot::EASY:	return 1.0f;
 	case CHL2MPBot::NORMAL:	return 0.5f;
 	case CHL2MPBot::HARD:	return 0.3f;
-	case CHL2MPBot::EXPERT:	return 0.2f;
+	case CHL2MPBot::EXPERT:	return 0.02f; //0.2f;
 	}
 
 	return 1.0f;

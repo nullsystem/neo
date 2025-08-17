@@ -23,12 +23,12 @@
 #include "tier0/memdbgon.h"
 
 
-ConVar nb_saccade_time( "nb_saccade_time", "0.1", FCVAR_CHEAT );
-ConVar nb_saccade_speed( "nb_saccade_speed", "1000", FCVAR_CHEAT );
-ConVar nb_head_aim_steady_max_rate( "nb_head_aim_steady_max_rate", "100", FCVAR_CHEAT );
-ConVar nb_head_aim_settle_duration( "nb_head_aim_settle_duration", "0.3", FCVAR_CHEAT );
+ConVar nb_saccade_time( "nb_saccade_time", "0.02", FCVAR_CHEAT );
+ConVar nb_saccade_speed( "nb_saccade_speed", "20000", FCVAR_CHEAT );
+ConVar nb_head_aim_steady_max_rate( "nb_head_aim_steady_max_rate", "10", FCVAR_CHEAT );
+ConVar nb_head_aim_settle_duration( "nb_head_aim_settle_duration", "0.01", FCVAR_CHEAT );
 ConVar nb_head_aim_resettle_angle( "nb_head_aim_resettle_angle", "100", FCVAR_CHEAT, "After rotating through this angle, the bot pauses to 'recenter' its virtual mouse on its virtual mousepad" );
-ConVar nb_head_aim_resettle_time( "nb_head_aim_resettle_time", "0.3", FCVAR_CHEAT, "How long the bot pauses to 'recenter' its virtual mouse on its virtual mousepad" );
+ConVar nb_head_aim_resettle_time( "nb_head_aim_resettle_time", "0.0", FCVAR_CHEAT, "How long the bot pauses to 'recenter' its virtual mouse on its virtual mousepad" );
 
 
 //-----------------------------------------------------------------------------------------------
@@ -387,10 +387,14 @@ const Vector &PlayerBody::GetViewVector( void ) const
  */
 void PlayerBody::AimHeadTowards( const Vector &lookAtPos, LookAtPriorityType priority, float duration, INextBotReply *replyWhenAimed, const char *reason )
 {
+#if 1
+	duration = 0.0001f;
+#else
 	if ( duration <= 0.0f )
 	{
 		duration = 0.1f;
 	}
+#endif
 
 	// don't spaz our aim around
 	if ( m_lookAtPriority == priority )
@@ -496,7 +500,7 @@ void PlayerBody::AimHeadTowards( CBaseEntity *subject, LookAtPriorityType priori
 {
 	if ( duration <= 0.0f )
 	{
-		duration = 0.1f;
+		duration = 0.02f;
 	}
 
 	if ( subject == NULL )

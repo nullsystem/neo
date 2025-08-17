@@ -163,12 +163,12 @@ CON_COMMAND_F(neo_bot_add, "Add a bot.", FCVAR_GAMEDLL)
 	int botCount = 1;
 	const char* teamname = "auto";
 	const char* pszBotNameViaArg = NULL;
-	CNEOBot::DifficultyType skill = clamp((CNEOBot::DifficultyType)neo_bot_difficulty.GetInt(), CNEOBot::EASY, CNEOBot::EXPERT);
+	CNEOBot::DifficultyType skill = CNEOBot::EXPERT; //clamp((CNEOBot::DifficultyType)neo_bot_difficulty.GetInt(), CNEOBot::EASY, CNEOBot::EXPERT);
 
 	int i;
 	for (i = 1; i < args.ArgC(); ++i)
 	{
-		CNEOBot::DifficultyType trySkill = StringToDifficultyLevel(args.Arg(i));
+		CNEOBot::DifficultyType trySkill = CNEOBot::EXPERT; //StringToDifficultyLevel(args.Arg(i));
 		int nArgAsInteger = atoi(args.Arg(i));
 
 		// each argument could be a classname, a team, a difficulty level, a count, or a name
