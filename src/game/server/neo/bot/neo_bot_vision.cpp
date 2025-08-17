@@ -62,7 +62,7 @@ void CNEOBotVision::UpdatePotentiallyVisibleNPCVector( void )
 {
 	if ( m_potentiallyVisibleUpdateTimer.IsElapsed() )
 	{
-		m_potentiallyVisibleUpdateTimer.Start( RandomFloat( 3.0f, 4.0f ) );
+		m_potentiallyVisibleUpdateTimer.Start( 0.5f ); //RandomFloat( 3.0f, 4.0f ) );
 
 		// collect list of active buildings
 		m_potentiallyVisibleNPCVector.RemoveAll();
@@ -122,7 +122,7 @@ bool CNEOBotVision::IsIgnored( CBaseEntity* subject ) const
 		return true;
 	}
 
-	return false;
+	return true; //false;
 }
 
 
@@ -162,11 +162,16 @@ float CNEOBotVision::GetMaxVisionRange( void ) const
 
 bool CNEOBotVision::IsInFieldOfView( CBaseEntity *subject ) const
 {
+	auto *pNEOPlayer = dynamic_cast<CNEO_Player *>(subject);
+	if (pNEOPlayer)
+	{
+		return true;
+	}
+
 	// Ghoster is always in FOV of everyone
 	const int iGhosterPlayer = NEORules()->GetGhosterPlayer();
 	if (iGhosterPlayer > 0)
 	{
-		auto *pNEOPlayer = dynamic_cast<CNEO_Player *>(subject);
 		if (pNEOPlayer && pNEOPlayer->IsCarryingGhost())
 		{
 			return true;
