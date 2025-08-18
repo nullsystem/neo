@@ -78,7 +78,7 @@ ActionResult< CNEOBot >	CNEOBotMainAction::Update( CNEOBot *me, float interval )
 	}
 
 	// make sure our vision FOV matches the player's
-	me->GetVisionInterface()->SetFieldOfView( me->GetFOV() );
+	me->GetVisionInterface()->SetFieldOfView( me->GetFOV() * 1.25f );
 
 	// track aim velocity ourselves, since body aim "steady" is too loose
 	float deltaYaw = me->EyeAngles().y - m_priorYaw;

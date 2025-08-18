@@ -62,7 +62,7 @@ void CNEOBotVision::UpdatePotentiallyVisibleNPCVector( void )
 {
 	if ( m_potentiallyVisibleUpdateTimer.IsElapsed() )
 	{
-		m_potentiallyVisibleUpdateTimer.Start( 0.5f ); //RandomFloat( 3.0f, 4.0f ) );
+		m_potentiallyVisibleUpdateTimer.Start( 1.0f ); //RandomFloat( 3.0f, 4.0f ) );
 
 		// collect list of active buildings
 		m_potentiallyVisibleNPCVector.RemoveAll();
@@ -106,10 +106,15 @@ bool CNEOBotVision::IsIgnored( CBaseEntity* subject ) const
 		return false;
 	}
 
+	auto *pNEOPlayer = dynamic_cast<CNEO_Player *>(subject);
+	if (pNEOPlayer)
+	{
+		return false;
+	}
+
 	const int iGhosterPlayer = NEORules()->GetGhosterPlayer();
 	if (iGhosterPlayer > 0)
 	{
-		auto *pNEOPlayer = dynamic_cast<CNEO_Player *>(subject);
 		if (pNEOPlayer && pNEOPlayer->IsCarryingGhost())
 		{
 			// don't ignore ghoster
@@ -122,7 +127,7 @@ bool CNEOBotVision::IsIgnored( CBaseEntity* subject ) const
 		return true;
 	}
 
-	return true; //false;
+	return false;
 }
 
 
@@ -137,7 +142,7 @@ float CNEOBotVision::GetMinRecognizeTime( void ) const
 	case CNEOBot::EASY:	return 1.0f;
 	case CNEOBot::NORMAL:	return 0.5f;
 	case CNEOBot::HARD:	return 0.3f;
-	case CNEOBot::EXPERT:	return 0.0f; //0.2f;
+	case CNEOBot::EXPERT:	return 0.01f; //0.2f;
 	}
 
 	return 1.0f;

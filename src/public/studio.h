@@ -1780,7 +1780,9 @@ struct virtualmodel_t
 		// checking against zero.
 		if ( (unsigned)sequence >= (unsigned)m_seq.Count() )
 		{
+#if 0
 			Assert( 0 );
+#endif
 			return 0;
 		}
 		return &m_group[ m_seq[ sequence ].group ];
