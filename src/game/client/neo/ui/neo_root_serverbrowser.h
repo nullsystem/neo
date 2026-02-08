@@ -101,7 +101,7 @@ struct GameServerSortContext
 
 struct GameServerPlayerSortContext
 {
-	GameServerPlayerSort col = GSPS_SCORE;
+	int col = GSPS_SCORE;
 	bool bDescending = true;
 };
 

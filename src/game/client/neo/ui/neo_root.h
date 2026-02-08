@@ -173,9 +173,9 @@ public:
 	CNeoServerList m_serverBrowser[GS__TOTAL];
 	CNeoServerPlayers m_serverPlayers;
 	ServerBrowserFilters m_sbFilters;
-	bool m_bSBFiltModified = false;
+	NeoUI::TableHeaderModFlags m_headerModFlagsServerBrowser = 0;
 	bool m_bShowFilterPanel = false;
-	bool m_bSPlayersSortModified = false;
+	NeoUI::TableHeaderModFlags m_headerModFlagsPlayers = 0;
 	GameServerSortContext m_sortCtx = {};
 
 	wchar_t m_wszBindingText[128];
