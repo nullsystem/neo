@@ -578,7 +578,7 @@ void CNeoRoot::OnTick()
 {
 	if (m_state == STATE_SERVERBROWSER)
 	{
-		if (m_bSBFiltModified)
+		if (m_headerModFlagsServerBrowser)
 		{
 			// Pass modified over to the tabs so it doesn't trigger
 			// the filter refresh immeditely
@@ -586,7 +586,7 @@ void CNeoRoot::OnTick()
 			{
 				m_serverBrowser[i].m_bModified = true;
 			}
-			m_bSBFiltModified = false;
+			m_headerModFlagsServerBrowser = 0;
 		}
 
 		auto *pSbTab = &m_serverBrowser[m_iServerBrowserTab];
@@ -598,10 +598,11 @@ void CNeoRoot::OnTick()
 	}
 	else if (m_state == STATE_SERVERDETAILS)
 	{
-		if (m_bSPlayersSortModified)
+		// NEO TODO MAYBE (nullsystem): Can just reverse list if desending used change
+		if (m_headerModFlagsPlayers)
 		{
 			m_serverPlayers.UpdateSortedList();
-			m_bSPlayersSortModified = false;
+			m_headerModFlagsPlayers = 0;
 		}
 	}
 }
@@ -1231,14 +1232,14 @@ void CNeoRoot::MainLoopNewGame(const MainLoopParam param)
 	NeoUI::EndContext();
 }
 
-static constexpr const wchar_t *SBLABEL_NAMES[GSIW__TOTAL] = {
+static const wchar_t *SBLABEL_NAMES[GSIW__TOTAL] = {
 	L"Lock", L"VAC", L"Name", L"Map", L"Players", L"Ping",
 };
 static const int ROWLAYOUT_TABLESPLIT[GSIW__TOTAL] = {
 	8, 8, 40, 20, 12, -1
 };
 
-static constexpr const wchar_t *BLACKLISTLABEL_NAMES[SBLIST_COL__TOTAL] = {
+static const wchar_t *BLACKLISTLABEL_NAMES[SBLIST_COL__TOTAL] = {
 	L"Name", L"Type", L"Added on",
 };
 static const int ROWLAYOUT_BLACKLIST[SBLIST_COL__TOTAL] = {
@@ -1332,27 +1333,6 @@ static void ServerBlacklistDrawRow(const ServerBlacklistInfo &blacklist)
 	}
 }
 
-static void DrawSortHint(const bool bDescending)
-{
-	if (g_uiCtx.eMode != NeoUI::MODE_PAINT || !IN_BETWEEN_AR(0, g_uiCtx.irWidgetLayoutY, g_uiCtx.dPanel.tall))
-	{
-		return;
-	}
-	int iHintTall = g_uiCtx.iMarginY / 3;
-	vgui::surface()->DrawSetColor(COLOR_WHITE);
-	if (!bDescending)
-	{
-		vgui::surface()->DrawFilledRect(g_uiCtx.rWidgetArea.x0, g_uiCtx.rWidgetArea.y0,
-										g_uiCtx.rWidgetArea.x1, g_uiCtx.rWidgetArea.y0 + iHintTall);
-	}
-	else
-	{
-		vgui::surface()->DrawFilledRect(g_uiCtx.rWidgetArea.x0, g_uiCtx.rWidgetArea.y1 - iHintTall,
-										g_uiCtx.rWidgetArea.x1, g_uiCtx.rWidgetArea.y1);
-	}
-	vgui::surface()->DrawSetColor(COLOR_NEOPANELACCENTBG);
-}
-
 void CNeoRoot::MainLoopServerBrowser(const MainLoopParam param)
 {
 	static const wchar_t *GS_NAMES[GS__TOTAL] = {
@@ -1395,7 +1375,7 @@ void CNeoRoot::MainLoopServerBrowser(const MainLoopParam param)
 
 			int iColTotal = GSIW__TOTAL;
 			const int *pirLayout = ROWLAYOUT_TABLESPLIT;
-			const wchar_t * const*pwszNames = SBLABEL_NAMES;
+			const wchar_t **pwszNames = SBLABEL_NAMES;
 			if (m_iServerBrowserTab == GS_BLACKLIST)
 			{
 				iColTotal = ARRAYSIZE(ROWLAYOUT_BLACKLIST);
@@ -1403,33 +1383,10 @@ void CNeoRoot::MainLoopServerBrowser(const MainLoopParam param)
 				pwszNames = BLACKLISTLABEL_NAMES;
 			}
 
-			NeoUI::SetPerRowLayout(iColTotal, pirLayout);
-			for (int i = 0; i < iColTotal; ++i)
-			{
-				const bool isSortCol = (m_sortCtx.col == i);
-				vgui::surface()->DrawSetColor(isSortCol ? COLOR_NEOPANELACCENTBG : COLOR_BLACK_TRANSPARENT);
-				if (NeoUI::Button(pwszNames[i]).bPressed)
-				{
-					if (isSortCol)
-					{
-						m_sortCtx.bDescending = !m_sortCtx.bDescending;
-					}
-					else
-					{
-						m_sortCtx.col = i;
-					}
-					m_bSBFiltModified = true;
-				}
+			NeoUI::TableHeader(pwszNames, iColTotal,
+					pirLayout, &m_sortCtx.col, &m_sortCtx.bDescending,
+					&m_headerModFlagsServerBrowser);
 
-				if (isSortCol)
-				{
-					DrawSortHint(m_sortCtx.bDescending);
-				}
-			}
-
-			// TODO: Should give proper controls over colors through NeoUI
-			vgui::surface()->DrawSetColor(COLOR_NEOPANELACCENTBG);
-			vgui::surface()->DrawSetTextColor(COLOR_WHITE);
 			g_uiCtx.eButtonTextStyle = NeoUI::TEXTSTYLE_CENTER;
 		}
 		NeoUI::EndSection();
@@ -2058,32 +2015,12 @@ void CNeoRoot::MainLoopServerDetails(const MainLoopParam param)
 				g_uiCtx.dPanel.tall = g_uiCtx.layout.iRowTall;
 				NeoUI::BeginSection();
 				{
-					NeoUI::SetPerRowLayout(ARRAYSIZE(PLAYER_ROW_PROP), PLAYER_ROW_PROP);
-					// Headers
-					static constexpr const wchar_t *PLAYER_HEADERS[GSPS__TOTAL] = {
+					static const wchar_t *PLAYER_HEADERS[GSPS__TOTAL] = {
 						L"Score", L"Name", L"Time"
 					};
-					for (int i = 0; i < GSPS__TOTAL; ++i)
-					{
-						vgui::surface()->DrawSetColor((m_serverPlayers.m_sortCtx.col == i) ? COLOR_NEOPANELACCENTBG : COLOR_BLACK_TRANSPARENT);
-						if (NeoUI::Button(PLAYER_HEADERS[i]).bPressed)
-						{
-							m_bSPlayersSortModified = true;
-							if (m_serverPlayers.m_sortCtx.col == i)
-							{
-								m_serverPlayers.m_sortCtx.bDescending = !m_serverPlayers.m_sortCtx.bDescending;
-							}
-							else
-							{
-								m_serverPlayers.m_sortCtx.col = static_cast<GameServerPlayerSort>(i);
-							}
-						}
-
-						if (m_serverPlayers.m_sortCtx.col == i)
-						{
-							DrawSortHint(m_serverPlayers.m_sortCtx.bDescending);
-						}
-					}
+					NeoUI::TableHeader(PLAYER_HEADERS, ARRAYSIZE(PLAYER_ROW_PROP),
+							PLAYER_ROW_PROP, &m_serverPlayers.m_sortCtx.col, &m_serverPlayers.m_sortCtx.bDescending,
+							&m_headerModFlagsPlayers);
 				}
 				NeoUI::EndSection();
 

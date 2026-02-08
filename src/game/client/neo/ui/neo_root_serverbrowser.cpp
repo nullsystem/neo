@@ -374,7 +374,7 @@ void CNeoServerPlayers::UpdateSortedList()
 
 	std::sort(m_sortedPlayers.begin(), m_sortedPlayers.end(),
 			  [this](const PlayerInfo &gspsLeft, const PlayerInfo &gspsRight) -> bool {
-		switch (m_sortCtx.col)
+		switch (static_cast<GameServerPlayerSort>(m_sortCtx.col))
 		{
 		case GSPS_SCORE:
 		{

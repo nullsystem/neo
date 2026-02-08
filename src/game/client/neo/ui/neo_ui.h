@@ -211,6 +211,7 @@ struct Colors
 	Color sliderHotBg;
 	Color sliderActiveBg;
 	Color tabHintsFg;
+	Color tableHeaderSortIndicatorBg;
 };
 
 struct Context
@@ -440,6 +441,22 @@ typedef int TextEditFlags;
 /*1W*/ void TextEdit(wchar_t *wszText, const int iMaxWszTextSize, const TextEditFlags flags = TEXTEDITFLAG_NONE);
 /*2W*/ void TextEdit(const wchar_t *wszLeftLabel, wchar_t *wszText, const int iMaxWszTextSize, const TextEditFlags flags = TEXTEDITFLAG_NONE);
 /*SW*/ void ImageTexture(const char *szTexturePath, const wchar_t *wszErrorMsg = L"", const char *szTextureGroup = "");
+
+// Table widgets + functionalities
+// NEO TODO (nullsystem): iColProportions non-const, resizable within TableHeader
+enum TableHeaderModFlag_
+{
+	TABLEHEADERMODFLAG_NONE = 0,
+	TABLEHEADERMODFLAG_INDEXCHANGED = 1 << 0,
+	TABLEHEADERMODFLAG_DESCENDINGCHANGED = 1 << 1,
+};
+typedef int TableHeaderModFlags;
+/*SW*/ void TableHeader(const wchar_t **wszColNamesList, const int iColsTotal,
+		const int *piColProportions, int *piSortIndex, bool *pbSortDescending,
+		TableHeaderModFlags *pModFlags);
+void BeginTable(const int iLabelsSize);
+void EndTable();
+void NextTableRow();
 
 // NeoUI::Texture is non-widget, but utilizes NeoUI's image/texture handling
 enum TextureOptFlags

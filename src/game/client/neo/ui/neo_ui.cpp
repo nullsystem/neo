@@ -2484,6 +2484,73 @@ void TextEdit(wchar_t *wszText, const int iMaxWszTextSize, const TextEditFlags f
 	EndWidget(wdgState);
 }
 
+void TableHeader(const wchar_t **wszColNamesList, const int iColsTotal,
+		const int *piColProportions, int *piSortIndex, bool *pbSortDescending,
+		TableHeaderModFlags *pModFlags)
+{
+	// NEO TODO (nullsystem): The headers should be resizable so this will
+	// need to be a custom widget itself like tabs
+	Context::Layout tmp;
+	V_memcpy(&tmp, &c->layout, sizeof(Context::Layout));
+	SetPerRowLayout(iColsTotal, piColProportions);
+
+	for (int i = 0; i < iColsTotal; ++i)
+	{
+		const bool isSortCol = (*piSortIndex == i);
+		// TODO: Doesn't do it properly with the new color system
+		//vgui::surface()->DrawSetColor(isSortCol ? COLOR_NEOPANELACCENTBG : COLOR_BLACK_TRANSPARENT);
+
+		if (NeoUI::Button(wszColNamesList[i]).bPressed)
+		{
+			if (isSortCol)
+			{
+				*pbSortDescending = !*pbSortDescending;
+				*pModFlags |= TABLEHEADERMODFLAG_DESCENDINGCHANGED;
+			}
+			else
+			{
+				*piSortIndex = i;
+				*pModFlags |= TABLEHEADERMODFLAG_INDEXCHANGED;
+			}
+			c->bValueEdited = true;
+		}
+
+		if (isSortCol && c->eMode == NeoUI::MODE_PAINT &&
+				IN_BETWEEN_AR(0, c->irWidgetLayoutY, c->dPanel.tall))
+		{
+			const int iHintTall = c->iMarginY / 3;
+			vgui::surface()->DrawSetColor(c->colors.tableHeaderSortIndicatorBg);
+			if (*pbSortDescending)
+			{
+				vgui::surface()->DrawFilledRect(c->rWidgetArea.x0, c->rWidgetArea.y1 - iHintTall,
+												c->rWidgetArea.x1, c->rWidgetArea.y1);
+			}
+			else
+			{
+				vgui::surface()->DrawFilledRect(c->rWidgetArea.x0, c->rWidgetArea.y0,
+												c->rWidgetArea.x1, c->rWidgetArea.y0 + iHintTall);
+			}
+		}
+	}
+
+	SetPerRowLayout(tmp.iRowPartsTotal, tmp.iRowParts, tmp.iRowTall);
+}
+
+void BeginTable(const int iLabelsSize)
+{
+	// 
+}
+
+void EndTable()
+{
+	// 
+}
+
+void NextTableRow()
+{
+	// 
+}
+
 bool Bind(const ButtonCode_t eCode)
 {
 	return c->eMode == MODE_KEYPRESSED && c->eCode == eCode;
