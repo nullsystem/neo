@@ -31,5 +31,6 @@ void SetupNTRETheme(NeoUI::Context *pNeoUICtx)
 	pColors->sliderHotBg = COLOR_GREY;
 	pColors->sliderActiveBg = COLOR_BLACK;
 	pColors->tabHintsFg = COLOR_WHITE;
+	pColors->tableHeaderSortIndicatorBg = COLOR_WHITE;
 }
 

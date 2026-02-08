@@ -522,7 +522,7 @@ void CNeoRoot::OnTick()
 {
 	if (m_state == STATE_SERVERBROWSER)
 	{
-		if (m_bSBFiltModified)
+		if (m_headerModFlagsServerBrowser)
 		{
 			// Pass modified over to the tabs so it doesn't trigger
 			// the filter refresh immeditely
@@ -530,7 +530,7 @@ void CNeoRoot::OnTick()
 			{
 				m_serverBrowser[i].m_bModified = true;
 			}
-			m_bSBFiltModified = false;
+			m_headerModFlagsServerBrowser = 0;
 		}
 
 		auto *pSbTab = &m_serverBrowser[m_iServerBrowserTab];
@@ -542,10 +542,11 @@ void CNeoRoot::OnTick()
 	}
 	else if (m_state == STATE_SERVERDETAILS)
 	{
-		if (m_bSPlayersSortModified)
+		// NEO TODO MAYBE (nullsystem): Can just reverse list if desending used change
+		if (m_headerModFlagsPlayers)
 		{
 			m_serverPlayers.UpdateSortedList();
-			m_bSPlayersSortModified = false;
+			m_headerModFlagsPlayers = 0;
 		}
 	}
 }
@@ -1175,127 +1176,19 @@ void CNeoRoot::MainLoopNewGame(const MainLoopParam param)
 	NeoUI::EndContext();
 }
 
-static constexpr const wchar_t *SBLABEL_NAMES[GSIW__TOTAL] = {
+static const wchar_t *SBLABEL_NAMES[GSIW__TOTAL] = {
 	L"Lock", L"VAC", L"Name", L"Map", L"Players", L"Ping",
 };
 static const int ROWLAYOUT_TABLESPLIT[GSIW__TOTAL] = {
 	8, 8, 40, 20, 12, -1
 };
 
-static constexpr const wchar_t *BLACKLISTLABEL_NAMES[SBLIST_COL__TOTAL] = {
+static const wchar_t *BLACKLISTLABEL_NAMES[SBLIST_COL__TOTAL] = {
 	L"Name", L"Type", L"Added on",
 };
 static const int ROWLAYOUT_BLACKLIST[SBLIST_COL__TOTAL] = {
 	60, 10, -1
 };
-
-
-static void ServerBrowserDrawRow(const gameserveritem_t &server)
-{
-	int xPos = 0;
-	const int fontStartYPos = g_uiCtx.fonts[g_uiCtx.eFont].iYOffset;
-
-	if (server.m_bPassword)
-	{
-		vgui::surface()->DrawSetTextPos(g_uiCtx.rWidgetArea.x0 + xPos + g_uiCtx.iMarginX, g_uiCtx.rWidgetArea.y0 + fontStartYPos);
-		vgui::surface()->DrawPrintText(L"P", 1);
-	}
-	xPos += static_cast<int>(g_uiCtx.irWidgetWide * (ROWLAYOUT_TABLESPLIT[GSIW_LOCKED] / 100.0f));
-
-	if (server.m_bSecure)
-	{
-		vgui::surface()->DrawSetTextPos(g_uiCtx.rWidgetArea.x0 + xPos + g_uiCtx.iMarginX, g_uiCtx.rWidgetArea.y0 + fontStartYPos);
-		vgui::surface()->DrawPrintText(L"S", 1);
-	}
-	xPos += static_cast<int>(g_uiCtx.irWidgetWide * (ROWLAYOUT_TABLESPLIT[GSIW_VAC] / 100.0f));
-
-	{
-		wchar_t wszServerName[k_cbMaxGameServerName];
-		const int iSize = g_pVGuiLocalize->ConvertANSIToUnicode(server.GetName(), wszServerName, sizeof(wszServerName));
-
-		vgui::surface()->DrawSetTextPos(g_uiCtx.rWidgetArea.x0 + xPos + g_uiCtx.iMarginX, g_uiCtx.rWidgetArea.y0 + fontStartYPos);
-		vgui::surface()->DrawPrintText(wszServerName, iSize - 1);
-	}
-	xPos += static_cast<int>(g_uiCtx.irWidgetWide * (ROWLAYOUT_TABLESPLIT[GSIW_NAME] / 100.0f));
-
-	{
-		// In lower resolution, it may overlap from name, so paint a background here
-		vgui::surface()->DrawFilledRect(g_uiCtx.rWidgetArea.x0 + xPos, g_uiCtx.rWidgetArea.y0,
-										g_uiCtx.rWidgetArea.x1, g_uiCtx.rWidgetArea.y1);
-
-		wchar_t wszMapName[k_cbMaxGameServerMapName];
-		const int iSize = g_pVGuiLocalize->ConvertANSIToUnicode(server.m_szMap, wszMapName, sizeof(wszMapName));
-
-		vgui::surface()->DrawSetTextPos(g_uiCtx.rWidgetArea.x0 + xPos + g_uiCtx.iMarginX, g_uiCtx.rWidgetArea.y0 + fontStartYPos);
-		vgui::surface()->DrawPrintText(wszMapName, iSize - 1);
-	}
-	xPos += static_cast<int>(g_uiCtx.irWidgetWide * (ROWLAYOUT_TABLESPLIT[GSIW_MAP] / 100.0f));
-
-	{
-		// In lower resolution, it may overlap from name, so paint a background here
-		vgui::surface()->DrawFilledRect(g_uiCtx.rWidgetArea.x0 + xPos, g_uiCtx.rWidgetArea.y0,
-										g_uiCtx.rWidgetArea.x1, g_uiCtx.rWidgetArea.y1);
-
-		wchar_t wszPlayers[15];
-		const int iSize = server.m_nBotPlayers ? V_swprintf_safe(wszPlayers, L"%d/%d (%d)", server.m_nPlayers - server.m_nBotPlayers, server.m_nMaxPlayers, server.m_nBotPlayers)
-												: V_swprintf_safe(wszPlayers, L"%d/%d", server.m_nPlayers, server.m_nMaxPlayers);
-		vgui::surface()->DrawSetTextPos(g_uiCtx.rWidgetArea.x0 + xPos + g_uiCtx.iMarginX, g_uiCtx.rWidgetArea.y0 + fontStartYPos);
-		vgui::surface()->DrawPrintText(wszPlayers, iSize);
-	}
-	xPos += static_cast<int>(g_uiCtx.irWidgetWide * (ROWLAYOUT_TABLESPLIT[GSIW_PLAYERS] / 100.0f));
-
-	{
-		wchar_t wszPing[10];
-		const int iSize = V_swprintf_safe(wszPing, L"%d", server.m_nPing);
-		vgui::surface()->DrawSetTextPos(g_uiCtx.rWidgetArea.x0 + xPos + g_uiCtx.iMarginX, g_uiCtx.rWidgetArea.y0 + fontStartYPos);
-		vgui::surface()->DrawPrintText(wszPing, iSize);
-	}
-}
-
-static void ServerBlacklistDrawRow(const ServerBlacklistInfo &blacklist)
-{
-	int xPos = 0;
-	const int fontStartYPos = g_uiCtx.fonts[g_uiCtx.eFont].iYOffset;
-
-	{
-		vgui::surface()->DrawSetTextPos(g_uiCtx.rWidgetArea.x0 + xPos + g_uiCtx.iMarginX, g_uiCtx.rWidgetArea.y0 + fontStartYPos);
-		vgui::surface()->DrawPrintText(blacklist.wszName, V_wcslen(blacklist.wszName));
-	}
-	xPos += static_cast<int>(g_uiCtx.irWidgetWide * (ROWLAYOUT_BLACKLIST[SBLIST_COL_NAME] / 100.0f));
-
-	{
-		vgui::surface()->DrawSetTextPos(g_uiCtx.rWidgetArea.x0 + xPos + g_uiCtx.iMarginX, g_uiCtx.rWidgetArea.y0 + fontStartYPos);
-		const wchar_t *pwszLabel = (blacklist.eType == SBLIST_TYPE_NETADR) ? L"IP" : L"NAME";
-		vgui::surface()->DrawPrintText(pwszLabel, V_wcslen(pwszLabel));
-	}
-	xPos += static_cast<int>(g_uiCtx.irWidgetWide * (ROWLAYOUT_BLACKLIST[SBLIST_COL_TYPE] / 100.0f));
-
-	{
-		vgui::surface()->DrawSetTextPos(g_uiCtx.rWidgetArea.x0 + xPos + g_uiCtx.iMarginX, g_uiCtx.rWidgetArea.y0 + fontStartYPos);
-		vgui::surface()->DrawPrintText(blacklist.wszDateTimeAdded, V_wcslen(blacklist.wszDateTimeAdded));
-	}
-}
-
-static void DrawSortHint(const bool bDescending)
-{
-	if (g_uiCtx.eMode != NeoUI::MODE_PAINT || !IN_BETWEEN_AR(0, g_uiCtx.irWidgetLayoutY, g_uiCtx.dPanel.tall))
-	{
-		return;
-	}
-	int iHintTall = g_uiCtx.iMarginY / 3;
-	vgui::surface()->DrawSetColor(COLOR_WHITE);
-	if (!bDescending)
-	{
-		vgui::surface()->DrawFilledRect(g_uiCtx.rWidgetArea.x0, g_uiCtx.rWidgetArea.y0,
-										g_uiCtx.rWidgetArea.x1, g_uiCtx.rWidgetArea.y0 + iHintTall);
-	}
-	else
-	{
-		vgui::surface()->DrawFilledRect(g_uiCtx.rWidgetArea.x0, g_uiCtx.rWidgetArea.y1 - iHintTall,
-										g_uiCtx.rWidgetArea.x1, g_uiCtx.rWidgetArea.y1);
-	}
-	vgui::surface()->DrawSetColor(COLOR_NEOPANELACCENTBG);
-}
 
 void CNeoRoot::MainLoopServerBrowser(const MainLoopParam param)
 {
@@ -1339,7 +1232,7 @@ void CNeoRoot::MainLoopServerBrowser(const MainLoopParam param)
 
 			int iColTotal = GSIW__TOTAL;
 			const int *pirLayout = ROWLAYOUT_TABLESPLIT;
-			const wchar_t * const*pwszNames = SBLABEL_NAMES;
+			const wchar_t **pwszNames = SBLABEL_NAMES;
 			if (m_iServerBrowserTab == GS_BLACKLIST)
 			{
 				iColTotal = ARRAYSIZE(ROWLAYOUT_BLACKLIST);
@@ -1347,33 +1240,9 @@ void CNeoRoot::MainLoopServerBrowser(const MainLoopParam param)
 				pwszNames = BLACKLISTLABEL_NAMES;
 			}
 
-			NeoUI::SetPerRowLayout(iColTotal, pirLayout);
-			for (int i = 0; i < iColTotal; ++i)
-			{
-				const bool isSortCol = (m_sortCtx.col == i);
-				vgui::surface()->DrawSetColor(isSortCol ? COLOR_NEOPANELACCENTBG : COLOR_BLACK_TRANSPARENT);
-				if (NeoUI::Button(pwszNames[i]).bPressed)
-				{
-					if (isSortCol)
-					{
-						m_sortCtx.bDescending = !m_sortCtx.bDescending;
-					}
-					else
-					{
-						m_sortCtx.col = i;
-					}
-					m_bSBFiltModified = true;
-				}
+			m_headerModFlagsServerBrowser |= NeoUI::TableHeader(pwszNames, iColTotal,
+					pirLayout, &m_sortCtx.col, &m_sortCtx.bDescending);
 
-				if (isSortCol)
-				{
-					DrawSortHint(m_sortCtx.bDescending);
-				}
-			}
-
-			// TODO: Should give proper controls over colors through NeoUI
-			vgui::surface()->DrawSetColor(COLOR_NEOPANELACCENTBG);
-			vgui::surface()->DrawSetTextColor(COLOR_WHITE);
 			g_uiCtx.eButtonTextStyle = NeoUI::TEXTSTYLE_CENTER;
 		}
 		NeoUI::EndSection();
@@ -1394,12 +1263,18 @@ void CNeoRoot::MainLoopServerBrowser(const MainLoopParam param)
 				}
 				else
 				{
+					NeoUI::BeginTable(ROWLAYOUT_BLACKLIST, ARRAYSIZE(ROWLAYOUT_BLACKLIST));
 					for (int i = 0; i < g_blacklistedServers.Count(); ++i)
 					{
 						const ServerBlacklistInfo &blacklist = g_blacklistedServers[i];
 
-						const auto btn = NeoUI::Button(L"");
-						if (btn.bPressed || btn.bMouseRightPressed) // Dummy button, draw over it in paint
+						const auto btn = NeoUI::NextTableRow();
+						{
+							NeoUI::Label(blacklist.wszName);
+							NeoUI::Label((blacklist.eType == SBLIST_TYPE_NETADR) ? L"IP" : L"NAME");
+							NeoUI::Label(blacklist.wszDateTimeAdded);
+						}
+						if (btn.bPressed || btn.bMouseRightPressed)
 						{
 							m_iSelectedServer = i;
 							if (btn.bMouseRightPressed)
@@ -1412,28 +1287,8 @@ void CNeoRoot::MainLoopServerBrowser(const MainLoopParam param)
 										});
 							}
 						}
-
-						if (param.eMode == NeoUI::MODE_PAINT)
-						{
-							Color drawColor = g_uiCtx.colors.normalBg;
-							Color textColor = g_uiCtx.colors.normalFg;
-							if (m_iSelectedServer == i)
-							{
-								drawColor = g_uiCtx.colors.activeBg;
-								textColor = g_uiCtx.colors.activeFg;
-							}
-							else if (btn.bMouseHover)
-							{
-								drawColor = COLOR_BLACK_TRANSPARENT;
-							}
-
-							vgui::surface()->DrawSetColor(drawColor);
-							vgui::surface()->DrawSetTextColor(textColor);
-							vgui::surface()->DrawFilledRectArray(&g_uiCtx.rWidgetArea, 1);
-							ServerBlacklistDrawRow(blacklist);
-							vgui::surface()->DrawSetColor(g_uiCtx.colors.normalBg);
-						}
 					}
+					NeoUI::EndTable();
 				}
 			}
 			else
@@ -1458,6 +1313,7 @@ void CNeoRoot::MainLoopServerBrowser(const MainLoopParam param)
 					// expanded to give Y-offset in the form of filtered array range so it only loops
 					// through what's needed instead.
 					const auto *sbTab = &m_serverBrowser[m_iServerBrowserTab];
+					NeoUI::BeginTable(ROWLAYOUT_TABLESPLIT, ARRAYSIZE(ROWLAYOUT_TABLESPLIT));
 					for (int i = 0; i < sbTab->m_filteredServers.Size(); ++i)
 					{
 						const auto &server = sbTab->m_filteredServers[i];
@@ -1474,8 +1330,40 @@ void CNeoRoot::MainLoopServerBrowser(const MainLoopParam param)
 							continue;
 						}
 
-						const auto btn = NeoUI::Button(L"");
-						if (btn.bPressed || btn.bMouseRightPressed) // Dummy button, draw over it in paint
+						wchar_t wszServerName[k_cbMaxGameServerName];
+						wchar_t wszMapName[k_cbMaxGameServerMapName];
+						wchar_t wszPlayers[15];
+						wchar_t wszPing[10];
+
+						g_pVGuiLocalize->ConvertANSIToUnicode(
+								server.GetName(), wszServerName, sizeof(wszServerName));
+						g_pVGuiLocalize->ConvertANSIToUnicode(
+								server.m_szMap, wszMapName, sizeof(wszMapName));
+						if (server.m_nBotPlayers)
+						{
+							V_swprintf_safe(wszPlayers, L"%d/%d (%d)",
+									server.m_nPlayers - server.m_nBotPlayers,
+									server.m_nMaxPlayers,
+									server.m_nBotPlayers);
+						}
+						else
+						{
+							V_swprintf_safe(wszPlayers, L"%d/%d",
+									server.m_nPlayers,
+									server.m_nMaxPlayers);
+						}
+						V_swprintf_safe(wszPing, L"%d", server.m_nPing);
+
+						const auto btn = NeoUI::NextTableRow();
+						{
+							NeoUI::Label((server.m_bPassword) ? L"P" : L"");
+							NeoUI::Label((server.m_bSecure) ? L"S" : L"");
+							NeoUI::Label(wszServerName);
+							NeoUI::Label(wszMapName);
+							NeoUI::Label(wszPlayers);
+							NeoUI::Label(wszPing);
+						}
+						if (btn.bPressed || btn.bMouseRightPressed)
 						{
 							m_iSelectedServer = i;
 							if (btn.bMouseRightPressed)
@@ -1498,29 +1386,8 @@ void CNeoRoot::MainLoopServerBrowser(const MainLoopParam param)
 								bEnterServer = true;
 							}
 						}
-
-						if (param.eMode == NeoUI::MODE_PAINT)
-						{
-							Color textColor = COLOR_WHITE;
-							Color drawColor = COLOR_BLACK_TRANSPARENT;
-							if (m_iSelectedServer == i)
-							{
-								drawColor = COLOR_WHITE;
-								textColor = COLOR_BLACK;
-							}
-							else if (btn.bMouseHover)
-							{
-								drawColor = COLOR_BLACK_TRANSPARENT;
-							}
-
-							vgui::surface()->DrawSetColor(drawColor);
-							vgui::surface()->DrawSetTextColor(textColor);
-							vgui::surface()->DrawFilledRect(g_uiCtx.rWidgetArea.x0, g_uiCtx.rWidgetArea.y0,
-															g_uiCtx.rWidgetArea.x1, g_uiCtx.rWidgetArea.y1);
-							ServerBrowserDrawRow(server);
-							vgui::surface()->DrawSetColor(g_uiCtx.colors.normalBg);
-						}
 					}
+					NeoUI::EndTable();
 				}
 			}
 		}
@@ -2076,32 +1943,11 @@ void CNeoRoot::MainLoopServerDetails(const MainLoopParam param)
 				g_uiCtx.dPanel.tall = g_uiCtx.layout.iRowTall;
 				NeoUI::BeginSection();
 				{
-					NeoUI::SetPerRowLayout(ARRAYSIZE(PLAYER_ROW_PROP), PLAYER_ROW_PROP);
-					// Headers
-					static constexpr const wchar_t *PLAYER_HEADERS[GSPS__TOTAL] = {
+					static const wchar_t *PLAYER_HEADERS[GSPS__TOTAL] = {
 						L"Score", L"Name", L"Time"
 					};
-					for (int i = 0; i < GSPS__TOTAL; ++i)
-					{
-						vgui::surface()->DrawSetColor((m_serverPlayers.m_sortCtx.col == i) ? COLOR_NEOPANELACCENTBG : COLOR_BLACK_TRANSPARENT);
-						if (NeoUI::Button(PLAYER_HEADERS[i]).bPressed)
-						{
-							m_bSPlayersSortModified = true;
-							if (m_serverPlayers.m_sortCtx.col == i)
-							{
-								m_serverPlayers.m_sortCtx.bDescending = !m_serverPlayers.m_sortCtx.bDescending;
-							}
-							else
-							{
-								m_serverPlayers.m_sortCtx.col = static_cast<GameServerPlayerSort>(i);
-							}
-						}
-
-						if (m_serverPlayers.m_sortCtx.col == i)
-						{
-							DrawSortHint(m_serverPlayers.m_sortCtx.bDescending);
-						}
-					}
+					m_headerModFlagsPlayers |= NeoUI::TableHeader(PLAYER_HEADERS, ARRAYSIZE(PLAYER_ROW_PROP),
+							PLAYER_ROW_PROP, &m_serverPlayers.m_sortCtx.col, &m_serverPlayers.m_sortCtx.bDescending);
 				}
 				NeoUI::EndSection();
 

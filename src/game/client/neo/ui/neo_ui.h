@@ -245,6 +245,7 @@ struct Colors
 	Color sliderHotBg;
 	Color sliderActiveBg;
 	Color tabHintsFg;
+	Color tableHeaderSortIndicatorBg;
 };
 
 struct Context
@@ -498,6 +499,27 @@ typedef int TextEditFlags;
 /*1W*/ void TextEdit(wchar_t *wszText, const int iMaxWszTextSize, const TextEditFlags flags = TEXTEDITFLAG_NONE);
 /*2W*/ void TextEdit(const wchar_t *wszLeftLabel, wchar_t *wszText, const int iMaxWszTextSize, const TextEditFlags flags = TEXTEDITFLAG_NONE);
 /*SW*/ void ImageTexture(const char *szTexturePath, const wchar_t *wszErrorMsg = L"", const char *szTextureGroup = "");
+
+// Table widgets + functionalities
+// NEO TODO (nullsystem): iColProportions non-const, resizable within TableHeader
+enum TableHeaderModFlag_
+{
+	TABLEHEADERMODFLAG_NONE = 0,
+	TABLEHEADERMODFLAG_INDEXCHANGED = 1 << 0,
+	TABLEHEADERMODFLAG_DESCENDINGCHANGED = 1 << 1,
+};
+typedef int TableHeaderModFlags;
+// Use like: modFlags |= NeoUI::TableHeader(...) to detect sort modifications and deal with it
+// at a later tick point.
+/*SW*/ [[nodiscard]] TableHeaderModFlags TableHeader(const wchar_t **wszColNamesList, const int iColsTotal,
+		const int *piColProportions, int *piSortIndex, bool *pbSortDescending);
+// NEO TODO (nullsystem): Maybe table have its own scrollbars, x+y axis, also col proportions
+// changed to pixels width of headers expanded upon (but then what about init of header sizes)?
+// NEO TODO (nullsystem): A mode for the table where it'll show y-axis scrollbar but only requires
+// and returns filter view of loop only necessary that's in-view
+void BeginTable(const int *piColProportions, const int iLabelsSize);
+void EndTable();
+RetButton NextTableRow();
 
 // NeoUI::Texture is non-widget, but utilizes NeoUI's image/texture handling
 enum TextureOptFlags

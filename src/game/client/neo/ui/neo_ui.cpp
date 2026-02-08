@@ -26,6 +26,10 @@ static Context *c = &g_emptyCtx;
 const int ROWLAYOUT_TWOSPLIT[] = { 40, -1 };
 static constexpr int WDGINFO_ALLOC_STEPS = 64;
 static constexpr float FL_BORDER_RATIO = 0.2f;
+static constexpr wchar_t WC_ARROW_UP = 0x2191;
+static constexpr wchar_t WC_ARROW_DOWN = 0x2193;
+static constexpr wchar_t WC_ARROW_LEFT = L'<'; //0x2190;
+static constexpr wchar_t WC_ARROW_RIGHT = L'>'; //0x2192;
 #define NEOUI_SCROLL_THICKNESS() (c->iMarginX * 4)
 
 #define DEBUG_NEOUI 0 // NEO NOTE (nullsystem): !!! Always flip to 0 on master + PR !!!
@@ -1520,14 +1524,14 @@ void RingBox(const wchar_t **wszLabelsList, const int iLabelsSize, int *iIndex)
 											c->rWidgetArea.x0 + c->layout.iRowTall, c->rWidgetArea.y1);
 			vgui::surface()->DrawSetTextPos(c->rWidgetArea.x0 + pFontI->iStartBtnXPos,
 											c->rWidgetArea.y0 + pFontI->iStartBtnYPos);
-			vgui::surface()->DrawPrintText(L"<", 1);
+			vgui::surface()->DrawUnicodeChar(WC_ARROW_LEFT);
 
 			// Right-side ">" next button
 			vgui::surface()->DrawFilledRect(c->rWidgetArea.x1 - c->layout.iRowTall, c->rWidgetArea.y0,
 											c->rWidgetArea.x1, c->rWidgetArea.y1);
 			vgui::surface()->DrawSetTextPos(c->rWidgetArea.x1 - c->layout.iRowTall + pFontI->iStartBtnXPos,
 											c->rWidgetArea.y0 + pFontI->iStartBtnYPos);
-			vgui::surface()->DrawPrintText(L">", 1);
+			vgui::surface()->DrawUnicodeChar(WC_ARROW_RIGHT);
 		}
 		break;
 		case MODE_MOUSEPRESSED:
@@ -1822,15 +1826,15 @@ void Slider(const wchar_t *wszLeftLabel, float *flValue, const float flMin, cons
 			vgui::surface()->DrawFilledRect(c->rWidgetArea.x0, c->rWidgetArea.y0,
 											c->rWidgetArea.x0 + c->layout.iRowTall, c->rWidgetArea.y1);
 			vgui::surface()->DrawSetTextPos(c->rWidgetArea.x0 + pFontI->iStartBtnXPos,
-										   c->rWidgetArea.y0 + pFontI->iStartBtnYPos);
-			vgui::surface()->DrawPrintText(L"<", 1);
+											c->rWidgetArea.y0 + pFontI->iStartBtnYPos);
+			vgui::surface()->DrawUnicodeChar(WC_ARROW_LEFT);
 
 			// Right-side ">" next button
 			vgui::surface()->DrawFilledRect(c->rWidgetArea.x1 - c->layout.iRowTall, c->rWidgetArea.y0,
 											c->rWidgetArea.x1, c->rWidgetArea.y1);
 			vgui::surface()->DrawSetTextPos(c->rWidgetArea.x1 - c->layout.iRowTall + pFontI->iStartBtnXPos,
-										   c->rWidgetArea.y0 + pFontI->iStartBtnYPos);
-			vgui::surface()->DrawPrintText(L">", 1);
+											c->rWidgetArea.y0 + pFontI->iStartBtnYPos);
+			vgui::surface()->DrawUnicodeChar(WC_ARROW_RIGHT);
 
 			// Center-text text dimensions
 			const bool bSpecial = (wszSpecialText && !wdgState.bActive && *flValue == 0.0f);
@@ -2596,6 +2600,68 @@ void TextEdit(wchar_t *wszText, const int iMaxWszTextSize, const TextEditFlags f
 	}
 
 	EndWidget(wdgState);
+}
+
+TableHeaderModFlags TableHeader(const wchar_t **wszColNamesList, const int iColsTotal,
+		const int *piColProportions, int *piSortIndex, bool *pbSortDescending)
+{
+	TableHeaderModFlags modFlags = 0;
+
+	// NEO TODO (nullsystem): The headers should be resizable so this will
+	// need to be a custom widget itself like tabs
+	Context::Layout tmp;
+	V_memcpy(&tmp, &c->layout, sizeof(Context::Layout));
+	SetPerRowLayout(iColsTotal, piColProportions);
+
+	for (int i = 0; i < iColsTotal; ++i)
+	{
+		const bool isSortCol = (*piSortIndex == i);
+		// TODO: Doesn't do it properly with the new color system
+		//vgui::surface()->DrawSetColor(isSortCol ? COLOR_NEOPANELACCENTBG : COLOR_BLACK_TRANSPARENT);
+
+		if (NeoUI::Button(wszColNamesList[i]).bPressed)
+		{
+			if (isSortCol)
+			{
+				*pbSortDescending = !*pbSortDescending;
+				modFlags |= TABLEHEADERMODFLAG_DESCENDINGCHANGED;
+			}
+			else
+			{
+				*piSortIndex = i;
+				modFlags |= TABLEHEADERMODFLAG_INDEXCHANGED;
+			}
+			c->bValueEdited = true;
+		}
+
+		if (isSortCol && c->eMode == NeoUI::MODE_PAINT &&
+				IN_BETWEEN_AR(0, c->irWidgetLayoutY, c->dPanel.tall))
+		{
+			const auto *pFontI = &c->fonts[c->eFont];
+			vgui::surface()->DrawSetColor(c->colors.tableHeaderSortIndicatorBg);
+			vgui::surface()->DrawSetTextPos(c->rWidgetArea.x1 - c->layout.iRowTall + pFontI->iStartBtnXPos,
+											c->rWidgetArea.y0 + pFontI->iStartBtnYPos);
+			vgui::surface()->DrawUnicodeChar((*pbSortDescending) ? WC_ARROW_DOWN : WC_ARROW_UP);
+		}
+	}
+
+	SetPerRowLayout(tmp.iRowPartsTotal, tmp.iRowParts, tmp.iRowTall);
+	return modFlags;
+}
+
+void BeginTable(const int *piColProportions, const int iLabelsSize)
+{
+	// 
+}
+
+void EndTable()
+{
+	// 
+}
+
+RetButton NextTableRow()
+{
+	return RetButton{};
 }
 
 bool Bind(const ButtonCode_t eCode)
