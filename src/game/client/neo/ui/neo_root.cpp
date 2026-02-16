@@ -69,6 +69,31 @@ constexpr wchar_t WSZ_GAME_TITLE1_b[] = L"C";
 constexpr wchar_t WSZ_GAME_TITLE2[] = L"Hrebuild";
 #define SZ_WEBSITE "https://neotokyorebuild.github.io"
 
+const wchar_t *TABLE_HEADERS_SERVERBROWSER[GSIW__TOTAL] = {
+	L"Lock", L"VAC", L"Name", L"Map", L"Players", L"Ping",
+};
+const int TABLE_DEFPROP_SERVERBROWSER[GSIW__TOTAL] = {
+	8, 8, 40, 20, 12, -1
+};
+
+const wchar_t *TABLE_HEADERS_SERVERBLACKLIST[SBLIST_COL__TOTAL] = {
+	L"Name", L"Type", L"Added on",
+};
+const int TABLE_DEFPROP_SERVERBLACKLIST[SBLIST_COL__TOTAL] = {
+	60, 10, -1
+};
+
+const wchar_t *TABLE_HEADERS_PLAYER[GSPS__TOTAL] = {
+	L"Score", L"Name", L"Time"
+};
+const int TABLE_DEFPROP_PLAYER[GSPS__TOTAL] = {
+	15, 65, -1
+};
+
+static_assert(sizeof(CNeoRoot::m_iColsWideServerBrowser) == sizeof(TABLE_DEFPROP_SERVERBROWSER));
+static_assert(sizeof(CNeoRoot::m_iColsWideServerBlacklist) == sizeof(TABLE_DEFPROP_SERVERBLACKLIST));
+static_assert(sizeof(CNeoRoot::m_iColsWideDetailedPlayerList) == sizeof(TABLE_DEFPROP_PLAYER));
+
 enum ENeoPopup
 {
 	NEOPOPUP_ACTIONSERVER = NeoUI::INTERNALPOPUP_NIL + 1,
@@ -1177,20 +1202,6 @@ void CNeoRoot::MainLoopNewGame(const MainLoopParam param)
 	NeoUI::EndContext();
 }
 
-static const wchar_t *SBLABEL_NAMES[GSIW__TOTAL] = {
-	L"Lock", L"VAC", L"Name", L"Map", L"Players", L"Ping",
-};
-static const int ROWLAYOUT_TABLESPLIT[GSIW__TOTAL] = {
-	8, 8, 40, 20, 12, -1
-};
-
-static const wchar_t *BLACKLISTLABEL_NAMES[SBLIST_COL__TOTAL] = {
-	L"Name", L"Type", L"Added on",
-};
-static const int ROWLAYOUT_BLACKLIST[SBLIST_COL__TOTAL] = {
-	60, 10, -1
-};
-
 void CNeoRoot::MainLoopServerBrowser(const MainLoopParam param)
 {
 	static const wchar_t *GS_NAMES[GS__TOTAL] = {
@@ -1207,6 +1218,32 @@ void CNeoRoot::MainLoopServerBrowser(const MainLoopParam param)
 	g_uiCtx.dPanel.y = (param.tall / 2) - (iTallTotal / 2);
 	g_uiCtx.dPanel.tall = g_uiCtx.layout.iRowTall * 2;
 	g_uiCtx.colors.sectionBg = COLOR_BLACK_TRANSPARENT;
+
+	// NEO TODO (nullsystem): Save and restore it cross sessions
+	if (NeoUI::MODE_PAINT == g_uiCtx.eMode && g_uiCtx.dPanel.wide > 0)
+	{
+		if (0 == m_iColsWideServerBrowser[0])
+		{
+			int iAccX = 0;
+			for (int i = 0; i < (GSIW__TOTAL - 1); ++i)
+			{
+				m_iColsWideServerBrowser[i] = (TABLE_DEFPROP_SERVERBROWSER[i] / 100.0f) * g_uiCtx.dPanel.wide;
+				iAccX += m_iColsWideServerBrowser[i];
+			}
+			m_iColsWideServerBrowser[GSIW__TOTAL - 1] = g_uiCtx.dPanel.wide - iAccX;
+		}
+		if (0 == m_iColsWideServerBlacklist[0])
+		{
+			int iAccX = 0;
+			for (int i = 0; i < (SBLIST_COL__TOTAL - 1); ++i)
+			{
+				m_iColsWideServerBlacklist[i] = (TABLE_DEFPROP_SERVERBLACKLIST[i] / 100.0f) * g_uiCtx.dPanel.wide;
+				iAccX += m_iColsWideServerBlacklist[i];
+			}
+			m_iColsWideServerBlacklist[SBLIST_COL__TOTAL - 1] = g_uiCtx.dPanel.wide - iAccX;
+		}
+	}
+
 	NeoUI::BeginContext(&g_uiCtx, param.eMode, m_wszCachedTexts[MMBTN_FINDSERVER], "CtxServerBrowser");
 	{
 		bool bForceRefresh = false;
@@ -1232,13 +1269,13 @@ void CNeoRoot::MainLoopServerBrowser(const MainLoopParam param)
 			g_uiCtx.eButtonTextStyle = NeoUI::TEXTSTYLE_LEFT;
 
 			int iColTotal = GSIW__TOTAL;
-			const int *pirLayout = ROWLAYOUT_TABLESPLIT;
-			const wchar_t **pwszNames = SBLABEL_NAMES;
+			int *pirLayout = m_iColsWideServerBrowser;
+			const wchar_t **pwszNames = TABLE_HEADERS_SERVERBROWSER;
 			if (m_iServerBrowserTab == GS_BLACKLIST)
 			{
-				iColTotal = ARRAYSIZE(ROWLAYOUT_BLACKLIST);
-				pirLayout = ROWLAYOUT_BLACKLIST;
-				pwszNames = BLACKLISTLABEL_NAMES;
+				iColTotal = SBLIST_COL__TOTAL;
+				pirLayout = m_iColsWideServerBlacklist;
+				pwszNames = TABLE_HEADERS_SERVERBLACKLIST;
 			}
 
 			m_headerModFlagsServerBrowser |= NeoUI::TableHeader(pwszNames, iColTotal,
@@ -1264,28 +1301,30 @@ void CNeoRoot::MainLoopServerBrowser(const MainLoopParam param)
 				}
 				else
 				{
-					NeoUI::BeginTable(ROWLAYOUT_BLACKLIST, ARRAYSIZE(ROWLAYOUT_BLACKLIST));
-					for (int i = 0; i < g_blacklistedServers.Count(); ++i)
+					NeoUI::BeginTable(m_iColsWideServerBlacklist, SBLIST_COL__TOTAL);
 					{
-						const ServerBlacklistInfo &blacklist = g_blacklistedServers[i];
+						for (int i = 0; i < g_blacklistedServers.Count(); ++i)
+						{
+							const ServerBlacklistInfo &blacklist = g_blacklistedServers[i];
 
-						const auto btn = NeoUI::NextTableRow();
-						{
-							NeoUI::Label(blacklist.wszName);
-							NeoUI::Label((blacklist.eType == SBLIST_TYPE_NETADR) ? L"IP" : L"NAME");
-							NeoUI::Label(blacklist.wszDateTimeAdded);
-						}
-						if (btn.bPressed || btn.bMouseRightPressed)
-						{
-							m_iSelectedServer = i;
-							if (btn.bMouseRightPressed)
+							const auto btn = NeoUI::NextTableRow();
 							{
-								NeoUI::OpenPopup(NEOPOPUP_ACTIONBLACKLIST, NeoUI::Dim{
-											.x = g_uiCtx.iMouseAbsX,
-											.y = g_uiCtx.iMouseAbsY,
-											.wide = NeoUI::PopupWideByStr("Remove from blacklist"),
-											.tall = g_uiCtx.layout.iDefRowTall,
-										});
+								NeoUI::Label(blacklist.wszName);
+								NeoUI::Label((blacklist.eType == SBLIST_TYPE_NETADR) ? L"IP" : L"NAME");
+								NeoUI::Label(blacklist.wszDateTimeAdded);
+							}
+							if (btn.bPressed || btn.bMouseRightPressed)
+							{
+								m_iSelectedServer = i;
+								if (btn.bMouseRightPressed)
+								{
+									NeoUI::OpenPopup(NEOPOPUP_ACTIONBLACKLIST, NeoUI::Dim{
+												.x = g_uiCtx.iMouseAbsX,
+												.y = g_uiCtx.iMouseAbsY,
+												.wide = NeoUI::PopupWideByStr("Remove from blacklist"),
+												.tall = g_uiCtx.layout.iDefRowTall,
+											});
+								}
 							}
 						}
 					}
@@ -1314,77 +1353,79 @@ void CNeoRoot::MainLoopServerBrowser(const MainLoopParam param)
 					// expanded to give Y-offset in the form of filtered array range so it only loops
 					// through what's needed instead.
 					const auto *sbTab = &m_serverBrowser[m_iServerBrowserTab];
-					NeoUI::BeginTable(ROWLAYOUT_TABLESPLIT, ARRAYSIZE(ROWLAYOUT_TABLESPLIT));
-					for (int i = 0; i < sbTab->m_filteredServers.Size(); ++i)
+					NeoUI::BeginTable(m_iColsWideServerBrowser, GSIW__TOTAL);
 					{
-						const auto &server = sbTab->m_filteredServers[i];
-						bool bSkipServer = false;
-						if (m_sbFilters.bServerNotFull && server.m_nPlayers == server.m_nMaxPlayers) bSkipServer = true;
-						else if (m_sbFilters.bHasUsersPlaying && server.m_nPlayers - server.m_nBotPlayers == 0) bSkipServer = true;
-						else if (m_sbFilters.bIsNotPasswordProtected && server.m_bPassword) bSkipServer = true;
-						else if (m_sbFilters.iAntiCheat == ANTICHEAT_OFF && server.m_bSecure) bSkipServer = true;
-						else if (m_sbFilters.iAntiCheat == ANTICHEAT_ON && !server.m_bSecure) bSkipServer = true;
-						else if (m_sbFilters.iMaxPing != 0 && server.m_nPing > m_sbFilters.iMaxPing) bSkipServer = true;
-						else if (ServerBlacklisted(server)) bSkipServer = true;
-						if (bSkipServer)
+						for (int i = 0; i < sbTab->m_filteredServers.Size(); ++i)
 						{
-							continue;
-						}
-
-						wchar_t wszServerName[k_cbMaxGameServerName];
-						wchar_t wszMapName[k_cbMaxGameServerMapName];
-						wchar_t wszPlayers[15];
-						wchar_t wszPing[10];
-
-						g_pVGuiLocalize->ConvertANSIToUnicode(
-								server.GetName(), wszServerName, sizeof(wszServerName));
-						g_pVGuiLocalize->ConvertANSIToUnicode(
-								server.m_szMap, wszMapName, sizeof(wszMapName));
-						if (server.m_nBotPlayers)
-						{
-							V_swprintf_safe(wszPlayers, L"%d/%d (%d)",
-									server.m_nPlayers - server.m_nBotPlayers,
-									server.m_nMaxPlayers,
-									server.m_nBotPlayers);
-						}
-						else
-						{
-							V_swprintf_safe(wszPlayers, L"%d/%d",
-									server.m_nPlayers,
-									server.m_nMaxPlayers);
-						}
-						V_swprintf_safe(wszPing, L"%d", server.m_nPing);
-
-						const auto btn = NeoUI::NextTableRow();
-						{
-							NeoUI::Label((server.m_bPassword) ? L"P" : L"");
-							NeoUI::Label((server.m_bSecure) ? L"S" : L"");
-							NeoUI::Label(wszServerName);
-							NeoUI::Label(wszMapName);
-							NeoUI::Label(wszPlayers);
-							NeoUI::Label(wszPing);
-						}
-						if (btn.bPressed || btn.bMouseRightPressed)
-						{
-							m_iSelectedServer = i;
-							if (btn.bMouseRightPressed)
+							const auto &server = sbTab->m_filteredServers[i];
+							bool bSkipServer = false;
+							if (m_sbFilters.bServerNotFull && server.m_nPlayers == server.m_nMaxPlayers) bSkipServer = true;
+							else if (m_sbFilters.bHasUsersPlaying && server.m_nPlayers - server.m_nBotPlayers == 0) bSkipServer = true;
+							else if (m_sbFilters.bIsNotPasswordProtected && server.m_bPassword) bSkipServer = true;
+							else if (m_sbFilters.iAntiCheat == ANTICHEAT_OFF && server.m_bSecure) bSkipServer = true;
+							else if (m_sbFilters.iAntiCheat == ANTICHEAT_ON && !server.m_bSecure) bSkipServer = true;
+							else if (m_sbFilters.iMaxPing != 0 && server.m_nPing > m_sbFilters.iMaxPing) bSkipServer = true;
+							else if (ServerBlacklisted(server)) bSkipServer = true;
+							if (bSkipServer)
 							{
-								NeoUI::OpenPopup(NEOPOPUP_ACTIONSERVER, NeoUI::Dim{
-											.x = g_uiCtx.iMouseAbsX,
-											.y = g_uiCtx.iMouseAbsY,
-											.wide = NeoUI::PopupWideByStr("Add to blacklist"),
-											.tall = g_uiCtx.layout.iDefRowTall * 2,
-										});
-
-								// NetAdrIsFavorite cached here for the popup
-								const auto *gameServer = &m_serverBrowser[m_iServerBrowserTab].m_filteredServers[m_iSelectedServer];
-								const servernetadr_t &netAdr = gameServer->m_NetAdr;
-								m_bFavCacheIsFav = NetAdrIsFavorite(netAdr);
-								m_favCacheNetAdr = netAdr;
+								continue;
 							}
-							if (btn.bKeyPressed || btn.bMouseDoublePressed)
+
+							wchar_t wszServerName[k_cbMaxGameServerName];
+							wchar_t wszMapName[k_cbMaxGameServerMapName];
+							wchar_t wszPlayers[15];
+							wchar_t wszPing[10];
+
+							g_pVGuiLocalize->ConvertANSIToUnicode(
+									server.GetName(), wszServerName, sizeof(wszServerName));
+							g_pVGuiLocalize->ConvertANSIToUnicode(
+									server.m_szMap, wszMapName, sizeof(wszMapName));
+							if (server.m_nBotPlayers)
 							{
-								bEnterServer = true;
+								V_swprintf_safe(wszPlayers, L"%d/%d (%d)",
+										server.m_nPlayers - server.m_nBotPlayers,
+										server.m_nMaxPlayers,
+										server.m_nBotPlayers);
+							}
+							else
+							{
+								V_swprintf_safe(wszPlayers, L"%d/%d",
+										server.m_nPlayers,
+										server.m_nMaxPlayers);
+							}
+							V_swprintf_safe(wszPing, L"%d", server.m_nPing);
+
+							const auto btn = NeoUI::NextTableRow();
+							{
+								NeoUI::Label((server.m_bPassword) ? L"P" : L"");
+								NeoUI::Label((server.m_bSecure) ? L"S" : L"");
+								NeoUI::Label(wszServerName);
+								NeoUI::Label(wszMapName);
+								NeoUI::Label(wszPlayers);
+								NeoUI::Label(wszPing);
+							}
+							if (btn.bPressed || btn.bMouseRightPressed)
+							{
+								m_iSelectedServer = i;
+								if (btn.bMouseRightPressed)
+								{
+									NeoUI::OpenPopup(NEOPOPUP_ACTIONSERVER, NeoUI::Dim{
+												.x = g_uiCtx.iMouseAbsX,
+												.y = g_uiCtx.iMouseAbsY,
+												.wide = NeoUI::PopupWideByStr("Add to blacklist"),
+												.tall = g_uiCtx.layout.iDefRowTall * 2,
+											});
+
+									// NetAdrIsFavorite cached here for the popup
+									const auto *gameServer = &m_serverBrowser[m_iServerBrowserTab].m_filteredServers[m_iSelectedServer];
+									const servernetadr_t &netAdr = gameServer->m_NetAdr;
+									m_bFavCacheIsFav = NetAdrIsFavorite(netAdr);
+									m_favCacheNetAdr = netAdr;
+								}
+								if (btn.bKeyPressed || btn.bMouseDoublePressed)
+								{
+									bEnterServer = true;
+								}
 							}
 						}
 					}
@@ -1883,6 +1924,20 @@ void CNeoRoot::MainLoopServerDetails(const MainLoopParam param)
 	g_uiCtx.dPanel.y = (param.tall / 2) - (iTallTotal / 2);
 	g_uiCtx.dPanel.tall = g_uiCtx.layout.iRowTall * 6;
 	g_uiCtx.colors.sectionBg = COLOR_BLACK_TRANSPARENT;
+
+	// NEO TODO (nullsystem): Save and restore it cross sessions
+	if (NeoUI::MODE_PAINT == g_uiCtx.eMode && g_uiCtx.dPanel.wide > 0 &&
+			0 == m_iColsWideDetailedPlayerList[0])
+	{
+		int iAccX = 0;
+		for (int i = 0; i < (GSPS__TOTAL - 1); ++i)
+		{
+			m_iColsWideDetailedPlayerList[i] = (TABLE_DEFPROP_PLAYER[i] / 100.0f) * g_uiCtx.dPanel.wide;
+			iAccX += m_iColsWideDetailedPlayerList[i];
+		}
+		m_iColsWideDetailedPlayerList[GSPS__TOTAL - 1] = g_uiCtx.dPanel.wide - iAccX;
+	}
+
 	NeoUI::BeginContext(&g_uiCtx, param.eMode, L"Server details", "CtxServerDetail");
 	{
 		NeoUI::BeginSection(NeoUI::SECTIONFLAG_DEFAULTFOCUS);
@@ -1938,18 +1993,14 @@ void CNeoRoot::MainLoopServerDetails(const MainLoopParam param)
 			}
 			else
 			{
-				static constexpr const int PLAYER_ROW_PROP[] = { 15, 65, -1 };
-
 				const int iInfoTall = g_uiCtx.dPanel.tall;
 				g_uiCtx.dPanel.y += iInfoTall;
 				g_uiCtx.dPanel.tall = g_uiCtx.layout.iRowTall;
 				NeoUI::BeginSection();
 				{
-					static const wchar_t *PLAYER_HEADERS[GSPS__TOTAL] = {
-						L"Score", L"Name", L"Time"
-					};
-					m_headerModFlagsPlayers |= NeoUI::TableHeader(PLAYER_HEADERS, ARRAYSIZE(PLAYER_ROW_PROP),
-							PLAYER_ROW_PROP, &m_serverPlayers.m_sortCtx.col, &m_serverPlayers.m_sortCtx.bDescending);
+					m_headerModFlagsPlayers |= NeoUI::TableHeader(TABLE_HEADERS_PLAYER, GSPS__TOTAL,
+							m_iColsWideDetailedPlayerList, &m_serverPlayers.m_sortCtx.col,
+							&m_serverPlayers.m_sortCtx.bDescending);
 				}
 				NeoUI::EndSection();
 
@@ -1957,38 +2008,41 @@ void CNeoRoot::MainLoopServerDetails(const MainLoopParam param)
 				g_uiCtx.dPanel.tall = iTallTotal - (2 * g_uiCtx.layout.iRowTall) - iInfoTall;
 				NeoUI::BeginSection();
 				{
-					NeoUI::SetPerRowLayout(ARRAYSIZE(PLAYER_ROW_PROP), PLAYER_ROW_PROP);
-					// Players - rows
-					for (const auto &player : m_serverPlayers.m_sortedPlayers)
+					NeoUI::BeginTable(m_iColsWideDetailedPlayerList, GSPS__TOTAL);
 					{
-						wchar_t wszText[32];
-
-						V_swprintf_safe(wszText, L"%d", player.iScore);
-						NeoUI::Label(wszText);
-						NeoUI::Label(player.wszName);
+						// Players - rows
+						for (const auto &player : m_serverPlayers.m_sortedPlayers)
 						{
-							static constexpr float FL_SECSINMIN = 60.0f;
-							static constexpr float FL_SECSINHRS = 60.0f * FL_SECSINMIN;
-							if (player.flTimePlayed < FL_SECSINMIN)
+							wchar_t wszText[32];
+
+							V_swprintf_safe(wszText, L"%d", player.iScore);
+							NeoUI::Label(wszText);
+							NeoUI::Label(player.wszName);
 							{
-								V_swprintf_safe(wszText, L"%.0fs", player.flTimePlayed);
+								static constexpr float FL_SECSINMIN = 60.0f;
+								static constexpr float FL_SECSINHRS = 60.0f * FL_SECSINMIN;
+								if (player.flTimePlayed < FL_SECSINMIN)
+								{
+									V_swprintf_safe(wszText, L"%.0fs", player.flTimePlayed);
+								}
+								else if (player.flTimePlayed < FL_SECSINMIN * 60.0f)
+								{
+									const int iMin = player.flTimePlayed / FL_SECSINMIN;
+									const int iSec = player.flTimePlayed - (iMin * FL_SECSINMIN);
+									V_swprintf_safe(wszText, L"%dm %ds", iMin, iSec);
+								}
+								else
+								{
+									const int iHrs = player.flTimePlayed / FL_SECSINHRS;
+									const int iMin = (player.flTimePlayed - (iHrs * FL_SECSINHRS)) / FL_SECSINMIN;
+									const int iSec = player.flTimePlayed - (iHrs * FL_SECSINHRS) - (iMin * FL_SECSINMIN);
+									V_swprintf_safe(wszText, L"%dh %dm %ds", iHrs, iMin, iSec);
+								}
 							}
-							else if (player.flTimePlayed < FL_SECSINMIN * 60.0f)
-							{
-								const int iMin = player.flTimePlayed / FL_SECSINMIN;
-								const int iSec = player.flTimePlayed - (iMin * FL_SECSINMIN);
-								V_swprintf_safe(wszText, L"%dm %ds", iMin, iSec);
-							}
-							else
-							{
-								const int iHrs = player.flTimePlayed / FL_SECSINHRS;
-								const int iMin = (player.flTimePlayed - (iHrs * FL_SECSINHRS)) / FL_SECSINMIN;
-								const int iSec = player.flTimePlayed - (iHrs * FL_SECSINHRS) - (iMin * FL_SECSINMIN);
-								V_swprintf_safe(wszText, L"%dh %dm %ds", iHrs, iMin, iSec);
-							}
+							NeoUI::Label(wszText);
 						}
-						NeoUI::Label(wszText);
 					}
+					NeoUI::EndTable();
 				}
 				NeoUI::EndSection();
 			}

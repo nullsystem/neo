@@ -231,6 +231,10 @@ public:
 	servernetadr_t m_favCacheNetAdr = {};
 	bool m_bFavCacheIsFav = false;
 	bool m_bAutoRefreshFav = false;
+
+	int m_iColsWideServerBrowser[GSIW__TOTAL] = {};
+	int m_iColsWideServerBlacklist[SBLIST_COL__TOTAL] = {};
+	int m_iColsWideDetailedPlayerList[GSPS__TOTAL] = {};
 };
 
 extern CNeoRoot *g_pNeoRoot;

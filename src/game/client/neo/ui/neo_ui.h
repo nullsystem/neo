@@ -107,7 +107,7 @@ struct Dim
 struct FontInfo
 {
 	vgui::HFont hdl;
-	int iYOffset;
+	int iYFontOffset;
 	int iStartBtnXPos;
 	int iStartBtnYPos;
 };
@@ -150,6 +150,7 @@ struct SliderInfo
 
 struct DynWidgetInfos
 {
+	int iXOffsets;
 	int iYOffsets;
 	int iYTall;
 	bool bCannotActive;
@@ -218,6 +219,13 @@ enum PopupFlag_
 };
 typedef int PopupFlags;
 
+enum EXYMouseDragOffset
+{
+	XYMOUSEDRAGOFFSET_NIL = 0,
+	XYMOUSEDRAGOFFSET_YAXIS,
+	XYMOUSEDRAGOFFSET_XAXIS,
+};
+
 struct Colors
 {
 	Color normalFg;
@@ -244,6 +252,19 @@ struct Colors
 	Color tableHeaderSortIndicatorBg;
 };
 
+// NEO NOTE (nullsystem):
+// If iRowParts = nullptr, iRowPartsTotal will be used of an equal proportions split
+struct Layout
+{
+	int iRowPartsTotal;
+	const int *iRowParts;
+	int iRowTall;
+	int iDefRowTall;
+
+	int iVertPartsTotal;
+	const int *iVertParts;
+};
+
 struct Context
 {
 	Mode eMode;
@@ -263,18 +284,6 @@ struct Context
 	bool bMouseInPanel;
 	int iHasMouseInPanel;
 
-	// NEO NOTE (nullsystem):
-	// If iRowParts = nullptr, iRowPartsTotal will be used of an equal proportions split
-	struct Layout
-	{
-		int iRowPartsTotal;
-		const int *iRowParts;
-		int iRowTall;
-		int iDefRowTall;
-
-		int iVertPartsTotal;
-		const int *iVertParts;
-	};
 	Layout layout;
 
 	// Themes
@@ -290,6 +299,7 @@ struct Context
 	vgui::IntRect rWidgetArea;
 	int irWidgetWide;
 	int irWidgetTall;
+	int irWidgetLayoutX;
 	int irWidgetLayoutY;
 
 	// Layout management
@@ -306,7 +316,7 @@ struct Context
 	int iVertLayoutY;
 	int iYOffset[MAX_SECTIONS] = {};
 	int iXOffset[MAX_SECTIONS] = {};
-	bool abYMouseDragOffset[MAX_SECTIONS] = {};
+	EXYMouseDragOffset aeXYMouseDragOffset[MAX_SECTIONS] = {};
 	int iStartMouseDragOffset[MAX_SECTIONS] = {};
 
 	// Saved infos for EndSection managing scrolling
@@ -324,7 +334,8 @@ struct Context
 
 	// Caches/read-ahead this section has scroll is
 	// known in previous frame(s)
-	uint64_t ibfSectionHasScroll = 0;
+	uint64_t ibfSectionHasXScroll = 0;
+	uint64_t ibfSectionHasYScroll = 0;
 
 	int iHot;
 	int iHotSection;
@@ -508,12 +519,14 @@ typedef int TableHeaderModFlags;
 // Use like: modFlags |= NeoUI::TableHeader(...) to detect sort modifications and deal with it
 // at a later tick point.
 /*SW*/ [[nodiscard]] TableHeaderModFlags TableHeader(const wchar_t **wszColNamesList, const int iColsTotal,
-		const int *piColProportions, int *piSortIndex, bool *pbSortDescending);
+		int *piColsWide, int *piSortIndex, bool *pbSortDescending);
 // NEO TODO (nullsystem): Maybe table have its own scrollbars, x+y axis, also col proportions
 // changed to pixels width of headers expanded upon (but then what about init of header sizes)?
 // NEO TODO (nullsystem): A mode for the table where it'll show y-axis scrollbar but only requires
 // and returns filter view of loop only necessary that's in-view
-void BeginTable(const int *piColProportions, const int iLabelsSize);
+
+// piColsWide - X px size wide of each columns, if negative it's a hidden column
+void BeginTable(const int *piColsWide, const int iLabelsSize);
 void EndTable();
 RetButton NextTableRow();
 
