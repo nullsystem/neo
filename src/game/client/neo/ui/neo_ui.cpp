@@ -288,7 +288,8 @@ void BeginContext(NeoUI::Context *pNextCtx, const NeoUI::Mode eMode, const wchar
 	{
 		c->htSliders.RemoveAll();
 		c->pSzCurCtxName = pSzCtxName;
-		c->ibfSectionHasScroll = 0;
+		c->ibfSectionHasXScroll = 0;
+		c->ibfSectionHasYScroll = 0;
 		c->iCurPopupId = 0;
 		V_memset(&c->dimPopup, 0, sizeof(Dim));
 		c->colorEditInfo.r = nullptr;
@@ -329,7 +330,7 @@ void BeginContext(NeoUI::Context *pNextCtx, const NeoUI::Mode eMode, const wchar
 		{
 			FontInfo *pFontI = &c->fonts[i];
 			const int iTall = vgui::surface()->GetFontTall(pFontI->hdl);
-			pFontI->iYOffset = (c->layout.iRowTall / 2) - (iTall / 2);
+			pFontI->iYFontOffset = (c->layout.iRowTall / 2) - (iTall / 2);
 			{
 				int iPrevNextWide, iPrevNextTall;
 				vgui::surface()->GetTextSize(pFontI->hdl, L"<", iPrevNextWide, iPrevNextTall);
@@ -343,7 +344,7 @@ void BeginContext(NeoUI::Context *pNextCtx, const NeoUI::Mode eMode, const wchar
 			SwapFont(FONT_NTLARGE, true);
 			vgui::surface()->DrawSetTextColor(c->colors.titleFg);
 			vgui::surface()->DrawSetTextPos(c->dPanel.x + c->iMarginX,
-											c->dPanel.y + -c->layout.iRowTall + c->fonts[FONT_NTLARGE].iYOffset);
+											c->dPanel.y + -c->layout.iRowTall + c->fonts[FONT_NTLARGE].iYFontOffset);
 			vgui::surface()->DrawPrintText(wszTitle, V_wcslen(wszTitle));
 		}
 		break;
@@ -460,15 +461,19 @@ void EndContext()
 void BeginSection(const ISectionFlags iSectionFlags)
 {
 	// Previous frame(s) known this section does scroll
-	if (c->ibfSectionHasScroll & (1ULL << c->iSection))
+	if (c->ibfSectionHasYScroll & (1ULL << c->iSection))
 	{
 		// NEO TODO (nullsystem): Change how dPanel works to enforce setting per BeginSection
 		// so don't need to shift around wide on scrollbars and keep usage dPanel "immutable"
 		// without extra variable
 		c->dPanel.wide -= NEOUI_SCROLL_THICKNESS();
 	}
+	if (c->ibfSectionHasXScroll & (1ULL << c->iSection))
+	{
+		c->dPanel.tall -= NEOUI_SCROLL_THICKNESS();
+	}
 
-	c->iLayoutX = 0;
+	c->iLayoutX = -c->iXOffset[c->iSection];
 	c->iLayoutY = -c->iYOffset[c->iSection];
 	c->irWidgetLayoutY = c->iLayoutY;
 	c->iWidget = 0;
@@ -534,37 +539,55 @@ void EndSection()
 		c->iActive = FOCUSOFF_NUM;
 		c->iActiveSection = -1;
 	}
+	const int iAbsLayoutX = c->irWidgetLayoutX + c->irWidgetWide + c->iXOffset[c->iSection];
 	const int iAbsLayoutY = c->irWidgetLayoutY + c->irWidgetTall + c->iYOffset[c->iSection];
+	c->wdgInfos[c->iWidget].iXOffsets = iAbsLayoutX;
 	c->wdgInfos[c->iWidget].iYOffsets = iAbsLayoutY;
 
 	// Scroll handling
-	const int iScrollThick = NEOUI_SCROLL_THICKNESS();
 	const int iMWheelJump = c->layout.iDefRowTall;
-	const bool bHasScroll = (iAbsLayoutY > c->dPanel.tall);
-	const bool bResetScrollPanelWide = (c->ibfSectionHasScroll & (1ULL << c->iSection));
+	const bool bHasXScroll = (iAbsLayoutX > c->dPanel.wide);
+	const bool bHasYScroll = (iAbsLayoutY > c->dPanel.tall);
+	const int iScrollThick = NEOUI_SCROLL_THICKNESS();
+	const bool bResetXScrollPanelWide = (c->ibfSectionHasXScroll & (1ULL << c->iSection));
+	const bool bResetYScrollPanelTall = (c->ibfSectionHasYScroll & (1ULL << c->iSection));
 
-	// Saved for next frame(s) to layout x-axis based on scroll
-	if (bHasScroll)
+	// Saved for next frame(s) to layout y-axis based on scroll
+	if (bHasYScroll)
 	{
-		c->ibfSectionHasScroll |= (1ULL << c->iSection);
+		c->ibfSectionHasYScroll |= (1ULL << c->iSection);
 	}
 	else
 	{
-		c->ibfSectionHasScroll &= ~(1ULL << c->iSection);
+		c->ibfSectionHasYScroll &= ~(1ULL << c->iSection);
 	}
 
-	vgui::IntRect rectScrollArea = {
+	if (bHasXScroll)
+	{
+		c->ibfSectionHasXScroll |= (1ULL << c->iSection);
+	}
+	else
+	{
+		c->ibfSectionHasXScroll &= ~(1ULL << c->iSection);
+	}
+
+	// TODO FIXUP: Spit between X-Y axis
+	vgui::IntRect rectYScrollArea = {
 		.x0 = c->dPanel.x + c->dPanel.wide,
 		.y0 = c->dPanel.y,
-		.x1 = c->dPanel.x + c->dPanel.wide + iScrollThick,
-		.y1 = c->dPanel.y + c->dPanel.tall,
+		.x1 = c->dPanel.x + c->dPanel.wide + (bHasYScroll ? iScrollThick : 0),
+		.y1 = c->dPanel.y + c->dPanel.tall + (bHasXScroll ? iScrollThick : 0),
 	};
-	const bool bMouseInScrollbar = bHasScroll && InRect(rectScrollArea, c->iMouseAbsX, c->iMouseAbsY);
-	const bool bMouseInWheelable = c->bMouseInPanel || bMouseInScrollbar;
+	// NEO TODO (nullsystem): X-axis scrollbar visibility is optional
+	const bool bMouseInYScrollbar = bHasYScroll && InRect(rectYScrollArea, c->iMouseAbsX, c->iMouseAbsY);
+	const bool bMouseInXScrollbar = bHasXScroll && InRect(rectXScrollArea, c->iMouseAbsX, c->iMouseAbsY);
+	const bool bMouseInYWheelable = c->bMouseInPanel || bMouseInYScrollbar;
+	const bool bMouseInXWheelable = bHasXScroll && !bMouseInYWheelable && (c->bMouseInPanel || bMouseInXScrollbar);
 
-	if (c->eMode == MODE_MOUSEWHEELED && bMouseInWheelable)
+	// y-axis always have precedence over x-axis on being wheelable
+	if (c->eMode == MODE_MOUSEWHEELED && bMouseInYWheelable)
 	{
-		if (!bHasScroll)
+		if (!bHasYScroll)
 		{
 			c->iYOffset[c->iSection] = 0;
 		}
@@ -572,6 +595,18 @@ void EndSection()
 		{
 			c->iYOffset[c->iSection] += (c->eCode == MOUSE_WHEEL_UP) ? -iMWheelJump : +iMWheelJump;
 			c->iYOffset[c->iSection] = clamp(c->iYOffset[c->iSection], 0, iAbsLayoutY - c->dPanel.tall);
+		}
+	}
+	else if (c->eMode == MODE_MOUSEWHEELED && bMouseInXWheelable)
+	{
+		if (!bHasXScroll)
+		{
+			c->iXOffset[c->iSection] = 0;
+		}
+		else
+		{
+			c->iXOffset[c->iSection] += (c->eCode == MOUSE_WHEEL_UP) ? -iMWheelJump : +iMWheelJump;
+			c->iXOffset[c->iSection] = clamp(c->iXOffset[c->iSection], 0, iAbsLayoutX - c->dPanel.wide);
 		}
 	}
 	else if (c->eMode == MODE_KEYPRESSED && IsKeyChangeWidgetFocus() &&
@@ -594,7 +629,7 @@ void EndSection()
 			c->iHotSection = c->iActiveSection;
 		}
 
-		if (!bHasScroll)
+		if (!bHasYScroll)
 		{
 			// Disable scroll if it doesn't need to
 			c->iYOffset[c->iSection] = 0;
@@ -612,63 +647,115 @@ void EndSection()
 	}
 
 	// Scroll bar area painting and mouse interaction (no keyboard as that's handled by active widgets)
-	if (bHasScroll)
+	if (bHasYScroll || bHasXScroll)
 	{
-		const int iYStart = c->iYOffset[c->iSection];
-		const int iYEnd = iYStart + c->dPanel.tall;
-		const float flYPercStart = iYStart / static_cast<float>(iAbsLayoutY);
-		const float flYPercEnd = iYEnd / static_cast<float>(iAbsLayoutY);
-		vgui::IntRect rectHandle{
-			c->dPanel.x + c->dPanel.wide,
-			c->dPanel.y + static_cast<int>(c->dPanel.tall * flYPercStart),
-			c->dPanel.x + c->dPanel.wide + iScrollThick,
-			c->dPanel.y + static_cast<int>(c->dPanel.tall * flYPercEnd)
-		};
+		vgui::IntRect rectYHandle = {};
+		vgui::IntRect rectXHandle = {};
 
-		bool bAlterOffset = false;
+		if (bHasYScroll)
+		{
+			const int iYStart = c->iYOffset[c->iSection];
+			const int iYEnd = iYStart + c->dPanel.tall;
+			const float flYPercStart = iYStart / static_cast<float>(iAbsLayoutY);
+			const float flYPercEnd = iYEnd / static_cast<float>(iAbsLayoutY);
+			rectYHandle.x0 = c->dPanel.x + c->dPanel.wide;
+			rectYHandle.y0 = c->dPanel.y + static_cast<int>(c->dPanel.tall * flYPercStart);
+			rectYHandle.x1 = c->dPanel.x + c->dPanel.wide + iScrollThick;
+			rectYHandle.y1 = c->dPanel.y + static_cast<int>(c->dPanel.tall * flYPercEnd);
+		}
+		if (bHasXScroll)
+		{
+			const int iXStart = c->iXOffset[c->iSection];
+			const int iXEnd = iXStart + c->dPanel.wide;
+			const float flXPercStart = iXStart / static_cast<float>(iAbsLayoutX);
+			const float flXPercEnd = iXEnd / static_cast<float>(iAbsLayoutX);
+			rectXHandle.x0 = c->dPanel.x + static_cast<int>(c->dPanel.wide * flXPercStart);
+			rectXHandle.y0 = c->dPanel.y + c->dPanel.tall;
+			rectXHandle.x1 = c->dPanel.x + static_cast<int>(c->dPanel.wide * flXPercEnd);
+			rectXHandle.y1 = c->dPanel.y + c->dPanel.tall + iScrollThick;
+		}
+
+		EXYMouseDragOffset eXYAlterOffset = XYMOUSEDRAGOFFSET_NIL;
 		switch (c->eMode)
 		{
 		case MODE_PAINT:
 			vgui::surface()->DrawSetColor(c->colors.scrollbarBg);
-			vgui::surface()->DrawFilledRectArray(&rectScrollArea, 1);
-			vgui::surface()->DrawSetColor(c->abYMouseDragOffset[c->iSection] ?
-					c->colors.scrollbarHandleActiveBg : c->colors.scrollbarHandleNormalBg);
-			vgui::surface()->DrawFilledRectArray(&rectHandle, 1);
+			if (bHasYScroll) vgui::surface()->DrawFilledRectArray(&rectYScrollArea, 1);
+			if (bHasXScroll) vgui::surface()->DrawFilledRectArray(&rectXScrollArea, 1);
+
+			if (bHasYScroll)
+			{
+				vgui::surface()->DrawSetColor(
+						(c->aeXYMouseDragOffset[c->iSection] == XYMOUSEDRAGOFFSET_YAXIS)
+							? c->colors.scrollbarHandleActiveBg
+							: c->colors.scrollbarHandleNormalBg);
+				vgui::surface()->DrawFilledRectArray(&rectYHandle, 1);
+			}
+			if (bHasXScroll)
+			{
+				vgui::surface()->DrawSetColor(
+						(c->aeXYMouseDragOffset[c->iSection] == XYMOUSEDRAGOFFSET_XAXIS)
+							? c->colors.scrollbarHandleActiveBg
+							: c->colors.scrollbarHandleNormalBg);
+				vgui::surface()->DrawFilledRectArray(&rectXHandle, 1);
+			}
 			break;
 		case MODE_MOUSEPRESSED:
-			c->abYMouseDragOffset[c->iSection] = bMouseInScrollbar;
-			if (bMouseInScrollbar)
+			c->aeXYMouseDragOffset[c->iSection] = bMouseInYScrollbar;
+			if (bMouseInYScrollbar)
 			{
 				// If not pressed on handle, set the drag at the middle
-				const bool bInHandle = InRect(rectHandle, c->iMouseAbsX, c->iMouseAbsY);
+				const bool bInHandle = InRect(rectYHandle, c->iMouseAbsX, c->iMouseAbsY);
 				c->iStartMouseDragOffset[c->iSection] = (bInHandle) ?
-							(c->iMouseAbsY - rectHandle.y0) :((rectHandle.y1 - rectHandle.y0) / 2.0f);
-				bAlterOffset = true;
+							(c->iMouseAbsY - rectYHandle.y0) : ((rectYHandle.y1 - rectYHandle.y0) / 2.0f);
+				eXYAlterOffset = XYMOUSEDRAGOFFSET_YAXIS;
+			}
+			if (bMouseInXScrollbar)
+			{
+				// If not pressed on handle, set the drag at the middle
+				const bool bInHandle = InRect(rectXHandle, c->iMouseAbsX, c->iMouseAbsY);
+				c->iStartMouseDragOffset[c->iSection] = (bInHandle) ?
+							(c->iMouseAbsX - rectXHandle.x0) : ((rectXHandle.x1 - rectXHandle.x0) / 2.0f);
+				eXYAlterOffset = XYMOUSEDRAGOFFSET_XAXIS;
 			}
 			break;
 		case MODE_MOUSERELEASED:
-			c->abYMouseDragOffset[c->iSection] = false;
+			c->aeXYMouseDragOffset[c->iSection] = XYMOUSEDRAGOFFSET_NIL;
 			break;
 		case MODE_MOUSEMOVED:
-			bAlterOffset = c->abYMouseDragOffset[c->iSection];
+			eXYAlterOffset = c->aeXYMouseDragOffset[c->iSection];
 			break;
 		default:
 			break;
 		}
 
-		if (bAlterOffset)
+		// NEO TODO (nullsystem): Could we deal with overlap/partial if we restrict paint area for
+		// each section properly? So it actually paints partially if partial area painted.
+		if (eXYAlterOffset == XYMOUSEDRAGOFFSET_YAXIS)
 		{
-			const float flXPercMouse = static_cast<float>(c->iMouseRelY - c->iStartMouseDragOffset[c->iSection]) / static_cast<float>(c->dPanel.tall);
+			const float flYPercMouse = static_cast<float>(c->iMouseRelY - c->iStartMouseDragOffset[c->iSection]) / static_cast<float>(c->dPanel.tall);
 			// Do not allow smooth scrolling so we don't have to deal with overlap/partial in section widgets
-			const int iNextYOffset = clamp(flXPercMouse * iAbsLayoutY, 0, (iAbsLayoutY - c->dPanel.tall));
+			const int iNextYOffset = clamp(flYPercMouse * iAbsLayoutY, 0, (iAbsLayoutY - c->dPanel.tall));
 			c->iYOffset[c->iSection] = iNextYOffset - (iNextYOffset % c->layout.iDefRowTall);
 		}
+		else if (eXYAlterOffset == XYMOUSEDRAGOFFSET_XAXIS)
+		{
+			const float flXPercMouse = static_cast<float>(c->iMouseRelX - c->iStartMouseDragOffset[c->iSection]) / static_cast<float>(c->dPanel.wide);
+			// Allow smooth scrolling as we deal with overlap/partial for x-axis
+			// Unlike Y-axis we don't typically layout for X-axis scroll
+			const int iNextXOffset = clamp(flXPercMouse * iAbsLayoutX, 0, (iAbsLayoutX - c->dPanel.wide));
+			c->iXOffset[c->iSection] = iNextXOffset;
+		}
 	}
-
+	
 	// NEO TODO (nullsystem): Change how dPanel works to enforce setting per BeginSection
 	// so don't need to shift around wide on scrollbars and keep usage dPanel "immutable"
 	// without extra variable
-	if (bResetScrollPanelWide)
+	if (bResetXScrollPanelWide)
+	{
+		c->dPanel.tall += iScrollThick;
+	}
+	if (bResetYScrollPanelTall)
 	{
 		c->dPanel.wide += iScrollThick;
 	}
@@ -1056,7 +1143,7 @@ void Divider(const wchar_t *wszText)
 			// Text
 			const auto *pFontI = &c->fonts[c->eFont];
 			const int x = XPosFromText(wszText, pFontI, c->eLabelTextStyle);
-			const int y = pFontI->iYOffset;
+			const int y = pFontI->iYFontOffset;
 			vgui::surface()->DrawSetTextPos(c->rWidgetArea.x0 + x, c->rWidgetArea.y0 + y);
 			vgui::surface()->DrawPrintText(wszText, V_wcslen(wszText));
 
@@ -1115,7 +1202,7 @@ void LabelWrap(const wchar_t *wszText)
 				if (c->eMode == MODE_PAINT)
 				{
 					vgui::surface()->DrawSetTextPos(c->rWidgetArea.x0 + c->iMarginX,
-													c->rWidgetArea.y0 + pFontI->iYOffset + iYOffset);
+													c->rWidgetArea.y0 + pFontI->iYFontOffset + iYOffset);
 					vgui::surface()->DrawPrintText(wszText + iStart, iLastSpace - iStart);
 				}
 				++iLines;
@@ -1131,7 +1218,7 @@ void LabelWrap(const wchar_t *wszText)
 			if (c->eMode == MODE_PAINT)
 			{
 				vgui::surface()->DrawSetTextPos(c->rWidgetArea.x0 + c->iMarginX,
-												c->rWidgetArea.y0 + pFontI->iYOffset + iYOffset);
+												c->rWidgetArea.y0 + pFontI->iYFontOffset + iYOffset);
 				vgui::surface()->DrawPrintText(wszText + iStart, iWszSize - iStart);
 			}
 			++iLines;
@@ -1173,7 +1260,7 @@ void Label(const wchar_t *wszText, const bool bNotWidget)
 	{
 		const auto *pFontI = &c->fonts[c->eFont];
 		const int x = XPosFromText(wszText, pFontI, c->eLabelTextStyle);
-		const int y = pFontI->iYOffset;
+		const int y = pFontI->iYFontOffset;
 		vgui::surface()->DrawSetTextPos(c->rWidgetArea.x0 + x, c->rWidgetArea.y0 + y);
 		vgui::surface()->DrawPrintText(wszText, V_wcslen(wszText));
 	}
@@ -1224,7 +1311,7 @@ NeoUI::RetButton BaseButton(const wchar_t *wszText, const char *szTexturePath, c
 
 				const auto *pFontI = &c->fonts[c->eFont];
 				const int x = XPosFromText(wszText, pFontI, c->eButtonTextStyle);
-				const int y = pFontI->iYOffset;
+				const int y = pFontI->iYFontOffset;
 				vgui::surface()->DrawSetTextPos(c->rWidgetArea.x0 + x, c->rWidgetArea.y0 + y);
 				vgui::surface()->DrawPrintText(wszText, V_wcslen(wszText));
 			} break;
@@ -1516,7 +1603,7 @@ void RingBox(const wchar_t **wszLabelsList, const int iLabelsSize, int *iIndex)
 
 			// Center-text label
 			vgui::surface()->DrawSetTextPos(c->rWidgetArea.x0 + ((c->irWidgetWide / 2) - (iFontWide / 2)),
-											c->rWidgetArea.y0 + pFontI->iYOffset);
+											c->rWidgetArea.y0 + pFontI->iYFontOffset);
 			vgui::surface()->DrawPrintText(wszText, V_wcslen(wszText));
 
 			// Left-side "<" prev button
@@ -1647,7 +1734,7 @@ void Tabs(const wchar_t **wszLabelsList, const int iLabelsSize, int *iIndex,
 			const wchar_t *wszText = wszLabelsList[i];
 			int wide, tall;
 			vgui::surface()->GetTextSize(c->fonts[c->eFont].hdl, wszText, wide, tall);
-			vgui::surface()->DrawSetTextPos(c->iXOffset[c->iSection] + iCenterTabsXOffset + iXPosTab + ((iTabWide - wide) * 0.5), pFontI->iYOffset);
+			vgui::surface()->DrawSetTextPos(c->iXOffset[c->iSection] + iCenterTabsXOffset + iXPosTab + ((iTabWide - wide) * 0.5), pFontI->iYFontOffset);
 			vgui::surface()->DrawSetTextColor(bActiveTab ? c->colors.activeFg : bHotTab ? c->colors.hotFg : c->colors.normalFg);
 			vgui::surface()->DrawPrintText(wszText, V_wcslen(wszText));
 			if (bHotTab)
@@ -1680,7 +1767,7 @@ void Tabs(const wchar_t **wszLabelsList, const int iLabelsSize, int *iIndex,
 			// NEO NOTE (nullsystem): F# as 1 is thinner than 3/not monospaced font
 			int iFontWidth, iFontHeight;
 			vgui::surface()->GetTextSize(c->fonts[c->eFont].hdl, L"F #", iFontWidth, iFontHeight);
-			const int iHintYPos = c->rWidgetArea.y0 + pFontI->iYOffset;
+			const int iHintYPos = c->rWidgetArea.y0 + pFontI->iYFontOffset;
 
 			vgui::surface()->DrawSetTextColor(c->colors.tabHintsFg);
 			vgui::surface()->DrawSetTextPos(c->dPanel.x - c->iMarginX - iFontWidth, iHintYPos);
@@ -1868,7 +1955,7 @@ void Slider(const wchar_t *wszLeftLabel, float *flValue, const float flMin, cons
 
 			// Center-text text render
 			vgui::surface()->DrawSetTextPos(c->rWidgetArea.x0 + iFontStartX,
-											c->rWidgetArea.y0 + pFontI->iYOffset);
+											c->rWidgetArea.y0 + pFontI->iYFontOffset);
 			vgui::surface()->DrawPrintText(bSpecial ? wszSpecialText : pSInfo->wszText,
 										   bSpecial ? V_wcslen(wszSpecialText) : V_wcslen(pSInfo->wszText));
 
@@ -1880,9 +1967,9 @@ void Slider(const wchar_t *wszLeftLabel, float *flValue, const float flMin, cons
 					const int iMarkX = iFontStartX + iFontWide;
 					vgui::surface()->DrawSetColor(c->colors.cursor);
 					vgui::surface()->DrawFilledRect(c->rWidgetArea.x0 + iMarkX,
-													c->rWidgetArea.y0 + pFontI->iYOffset,
+													c->rWidgetArea.y0 + pFontI->iYFontOffset,
 													c->rWidgetArea.x0 + iMarkX + c->iMarginX,
-													c->rWidgetArea.y0 + pFontI->iYOffset + iFontTall);
+													c->rWidgetArea.y0 + pFontI->iYFontOffset + iFontTall);
 				}
 			}
 		}
@@ -2234,7 +2321,7 @@ void TextEdit(wchar_t *wszText, const int iMaxWszTextSize, const TextEditFlags f
 			int iFontWide, iFontTall;
 			vgui::surface()->GetTextSize(pFontI->hdl, wszDbgText, iFontWide, iFontTall);
 			vgui::surface()->DrawSetTextPos(c->rWidgetArea.x1 - c->iMarginX - iFontWide,
-											c->rWidgetArea.y0 + pFontI->iYOffset);
+											c->rWidgetArea.y0 + pFontI->iYFontOffset);
 			vgui::surface()->DrawPrintText(wszDbgText, V_wcslen(wszDbgText));
 			vgui::surface()->DrawSetTextColor(c->colors.normalFg);
 #endif // defined(DEBUG) && DEBUG_NEOUI
@@ -2282,14 +2369,14 @@ void TextEdit(wchar_t *wszText, const int iMaxWszTextSize, const TextEditFlags f
 							bIsCursor ? c->colors.cursor : c->colors.textSelectionBg);
 					vgui::surface()->DrawFilledRect(
 							c->rWidgetArea.x0 + c->iMarginX + iXStart,
-							c->rWidgetArea.y0 + ((bIsCursor) ? pFontI->iYOffset : 0),
+							c->rWidgetArea.y0 + ((bIsCursor) ? pFontI->iYFontOffset : 0),
 							c->rWidgetArea.x0 + c->iMarginX + iXEnd,
-							(bIsCursor) ? c->rWidgetArea.y0 + pFontI->iYOffset + vgui::surface()->GetFontTall(pFontI->hdl) : c->rWidgetArea.y1);
+							(bIsCursor) ? c->rWidgetArea.y0 + pFontI->iYFontOffset + vgui::surface()->GetFontTall(pFontI->hdl) : c->rWidgetArea.y1);
 					vgui::surface()->DrawSetColor(c->colors.normalBg);
 				}
 			}
 			vgui::surface()->DrawSetTextPos(c->rWidgetArea.x0 + c->iMarginX,
-											c->rWidgetArea.y0 + pFontI->iYOffset);
+											c->rWidgetArea.y0 + pFontI->iYFontOffset);
 			const wchar_t *pwszPrintText = (bIsPassword) ? staticWszPasswordChars : wszText;
 			vgui::surface()->DrawPrintText(pwszPrintText, iWszTextSize);
 		}
@@ -2612,6 +2699,58 @@ TableHeaderModFlags TableHeader(const wchar_t **wszColNamesList, const int iCols
 	Context::Layout tmp;
 	V_memcpy(&tmp, &c->layout, sizeof(Context::Layout));
 	SetPerRowLayout(iColsTotal, piColProportions);
+
+	const auto wdgState = BeginWidget(WIDGETFLAG_SKIPACTIVE | WIDGETFLAG_MOUSE | WIDGETFLAG_NOHOTBORDER);
+
+	// Sanity check if iLabelsSize dynamically changes
+	*piSortIndex = clamp(*piSortIndex, 0, iColsTotal - 1);
+
+	if (wdgState.bInView)
+	{
+		switch (c->eMode)
+		{
+		case MODE_PAINT:
+		{
+			vgui::surface()->SetFullscreenViewport(
+					c->rWidgetArea.x0, c->rWidgetArea.y0,
+					c->irWidgetWide, c->irWidgetTall);
+			vgui::surface()->PushFullscreenViewport();
+
+			const auto *pFontI = &c->fonts[c->eFont];
+			for (int i = 0; i < iColsTotal; ++i)
+			{
+				const vgui::IntRect headerCellRect = {
+					.x0 = ,
+					.y0 = 0,
+					.x1 = ,
+					.y1 = c->irWidgetTall,
+				};
+				const bool bHotCell = IN_BETWEEN_EQ(headerCellRect.x0, c->iMouseAbsX, headerCellRect.x1) &&
+						IN_BETWEEN_EQ(headerCellRect.y0, c->iMouseAbsY, headerCellRect.y1);
+				const bool bActiveCell = i == *piSortIndex;
+				if (bHotCell || bActiveCell)
+				{
+					vgui::surface()->DrawSetColor(bActiveCell ? c->colors.activeBg : c->colors.hotBg);
+					vgui::surface()->DrawFilledRectArray(&headerCellRect, 1);
+				}
+				const wchar_t *wszText = wszColNamesList[i];
+				// TODO: Maybe similar to L1593+
+			}
+
+			vgui::surface()->PopFullscreenViewport();
+			vgui::surface()->SetFullscreenViewport(0, 0, 0, 0);
+		}
+		break;
+		case MODE_MOUSEPRESSED:
+		{
+		}
+		break;
+		default:
+			break;
+		}
+	}
+
+	EndWidget(wdgState);
 
 	for (int i = 0; i < iColsTotal; ++i)
 	{

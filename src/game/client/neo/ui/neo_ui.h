@@ -107,7 +107,7 @@ struct Dim
 struct FontInfo
 {
 	vgui::HFont hdl;
-	int iYOffset;
+	int iYFontOffset;
 	int iStartBtnXPos;
 	int iStartBtnYPos;
 };
@@ -150,6 +150,7 @@ struct SliderInfo
 
 struct DynWidgetInfos
 {
+	int iXOffsets;
 	int iYOffsets;
 	int iYTall;
 	bool bCannotActive;
@@ -217,6 +218,13 @@ enum PopupFlag_
 	POPUPFLAG__NEWOPENPOPUP = 1 << 9, // The popup just initialized
 };
 typedef int PopupFlags;
+
+enum EXYMouseDragOffset
+{
+	XYMOUSEDRAGOFFSET_NIL = 0,
+	XYMOUSEDRAGOFFSET_YAXIS,
+	XYMOUSEDRAGOFFSET_XAXIS,
+};
 
 struct Colors
 {
@@ -310,7 +318,7 @@ struct Context
 	int iVertLayoutY;
 	int iYOffset[MAX_SECTIONS] = {};
 	int iXOffset[MAX_SECTIONS] = {};
-	bool abYMouseDragOffset[MAX_SECTIONS] = {};
+	EXYMouseDragOffset aeXYMouseDragOffset[MAX_SECTIONS] = {};
 	int iStartMouseDragOffset[MAX_SECTIONS] = {};
 
 	// Saved infos for EndSection managing scrolling
@@ -328,7 +336,8 @@ struct Context
 
 	// Caches/read-ahead this section has scroll is
 	// known in previous frame(s)
-	uint64_t ibfSectionHasScroll = 0;
+	uint64_t ibfSectionHasXScroll = 0;
+	uint64_t ibfSectionHasYScroll = 0;
 
 	int iHot;
 	int iHotSection;
