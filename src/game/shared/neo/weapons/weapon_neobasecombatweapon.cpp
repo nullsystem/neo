@@ -1244,31 +1244,37 @@ int CNEOBaseCombatWeapon::DrawModel(int flags)
 	}
 
 	auto pOwner = static_cast<C_NEO_Player *>(GetOwner());
-	bool inThermalVision = pTargetPlayer->IsInVision() && pTargetPlayer->GetClass() == NEO_CLASS_SUPPORT;
-	int ret = 0;
+	const bool inThermalVision = pTargetPlayer->IsInVision() && pTargetPlayer->GetClass() == NEO_CLASS_SUPPORT;
+	const bool bIsCloaked = (pOwner && pOwner->IsCloaked());
 
-	if (inThermalVision && (!pOwner || (pOwner && !pOwner->IsCloaked())))
+	if (inThermalVision != bIsCloaked)
 	{
-		IMaterial* pass = materials->FindMaterial("dev/thermal_weapon_model", TEXTURE_GROUP_MODEL);
-		modelrender->ForcedMaterialOverride(pass);
-		ret |= BaseClass::DrawModel(flags);
-		modelrender->ForcedMaterialOverride(nullptr);
-		return ret;
+		if (false == pTargetPlayer->IsAbleToSee(this, C_NEO_Player::USE_FOV))
+		{
+			return 0;
+		}
+
+		int ret = 0;
+		if (inThermalVision && !bIsCloaked)
+		{
+			IMaterial* pass = materials->FindMaterial("dev/thermal_weapon_model", TEXTURE_GROUP_MODEL);
+			modelrender->ForcedMaterialOverride(pass);
+			ret |= BaseClass::DrawModel(flags);
+			modelrender->ForcedMaterialOverride(nullptr);
+			return ret;
+		}
+		else if (bIsCloaked && !inThermalVision)
+		{
+			mat_neo_toc_test.SetValue(pOwner->GetCloakFactor());
+			IMaterial* pass = materials->FindMaterial("models/player/toc", TEXTURE_GROUP_CLIENT_EFFECTS);
+			modelrender->ForcedMaterialOverride(pass);
+			ret |= BaseClass::DrawModel(flags);
+			modelrender->ForcedMaterialOverride(nullptr);
+			return ret;
+		}
 	}
 
-	if ((pOwner && pOwner->IsCloaked()) && !inThermalVision)
-	{
-		mat_neo_toc_test.SetValue(pOwner->GetCloakFactor());
-		IMaterial* pass = materials->FindMaterial("models/player/toc", TEXTURE_GROUP_CLIENT_EFFECTS);
-		modelrender->ForcedMaterialOverride(pass);
-		ret |= BaseClass::DrawModel(flags);
-		modelrender->ForcedMaterialOverride(nullptr);
-		return ret;
-	}
-	else
-	{
-		return BaseClass::DrawModel(flags);
-	}
+	return BaseClass::DrawModel(flags);
 }
 
 RenderGroup_t CNEOBaseCombatWeapon::GetRenderGroup()
