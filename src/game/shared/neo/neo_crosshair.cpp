@@ -29,23 +29,18 @@ const wchar_t **CROSSHAIR_DYNAMICTYPE_LABELS = INTERNAL_CROSSHAIR_DYNAMICTYPE_LA
 static const wchar_t *INTERNAL_CROSSHAIR_SIZETYPE_LABELS[CROSSHAIR_SIZETYPE__TOTAL] = { L"Absolute", L"Screen halves" };
 const wchar_t **CROSSHAIR_SIZETYPE_LABELS = INTERNAL_CROSSHAIR_SIZETYPE_LABELS;
 
-void PaintCrosshair(const CrosshairInfo &crh, int inaccuracy, const int x, const int y)
+void PaintCrosshair(const CrosshairWepInfo *crh, const int inaccuracy, const int x, const int y)
 {
-	if (NEORules() && NEORules()->GetHiddenHudElements() & NEO_HUD_ELEMENT_CROSSHAIR)
-	{
-		return;
-	}
-
 	int wide, tall;
 	vgui::surface()->GetScreenSize(wide, tall);
 
-	int iSize = crh.iSize;
-	int iThick = crh.iThick;
-	int iGap = crh.iGap;
-	int iCircleRad = crh.iCircleRad;
-	int iCircleSegments = crh.iCircleSegments;
+	int iSize = crh->iSize;
+	int iThick = crh->iThick;
+	int iGap = crh->iGap;
+	int iCircleRad = crh->iCircleRad;
+	int iCircleSegments = crh->iCircleSegments;
 
-	switch (crh.eDynamicType)
+	switch (crh->eDynamicType)
 	{ // Do we want to add the inaccuracy or replace the inaccuracy, or set the size to whatever is larger? should the operation be another option for the player?
 	case CROSSHAIR_DYNAMICTYPE_SIZE:
 		iSize += inaccuracy;
@@ -78,14 +73,14 @@ void PaintCrosshair(const CrosshairInfo &crh, int inaccuracy, const int x, const
 
 	if (iSize > 0)
 	{
-		if (crh.eSizeType == CROSSHAIR_SIZETYPE_SCREEN && crh.eDynamicType == CROSSHAIR_DYNAMICTYPE_NONE)
+		if (crh->eSizeType == CROSSHAIR_SIZETYPE_SCREEN && crh->eDynamicType == CROSSHAIR_DYNAMICTYPE_NONE)
 		{
-			iSize = (crh.flScrSize * (Max(wide, tall) / 2));
+			iSize = (crh->flScrSize * (Max(wide, tall) / 2));
 		}
 
-		const bool bOdd = ((crh.iThick % 2) == 1);
+		const bool bOdd = ((crh->iThick % 2) == 1);
 		const int iRBOffset = bOdd ? -1 : 0; // Right + bottom, odd-px offset
-		const int iHalf = crh.iThick / 2;
+		const int iHalf = crh->iThick / 2;
 		const int iStartThick = bOdd ? iHalf + 1 : iHalf;
 		const int iEndThick = iHalf;
 		vgui::IntRect iRects[4] = {
@@ -101,47 +96,48 @@ void PaintCrosshair(const CrosshairInfo &crh, int inaccuracy, const int x, const
 			rect.x1 += x;
 			rect.y1 += y;
 		}
-		const int iRectSize = (crh.bTopLine) ? 4 : 3;
-		if (crh.iOutline > 0)
+		const int iRectSize = (crh->flags & CROSSHAIR_FLAG_NOTOPLINE) ? 3 : 4;
+		if (crh->iOutline > 0)
 		{
 			vgui::IntRect iOutRects[4] = {};
 			V_memcpy(iOutRects, iRects, sizeof(vgui::IntRect) * 4);
 			for (vgui::IntRect &rect : iOutRects)
 			{
-				rect.x0 -= crh.iOutline;
-				rect.y0 -= crh.iOutline;
-				rect.x1 += crh.iOutline;
-				rect.y1 += crh.iOutline;
+				rect.x0 -= crh->iOutline;
+				rect.y0 -= crh->iOutline;
+				rect.x1 += crh->iOutline;
+				rect.y1 += crh->iOutline;
 			}
-			vgui::surface()->DrawSetColor(crh.colorOutline);
+			vgui::surface()->DrawSetColor(crh->colorOutline);
 			vgui::surface()->DrawFilledRectArray(iOutRects, iRectSize);
 		}
 
-		vgui::surface()->DrawSetColor(crh.color);
+		vgui::surface()->DrawSetColor(crh->color);
 		vgui::surface()->DrawFilledRectArray(iRects, iRectSize);
 	}
 
-	if (crh.iCenterDot > 0)
+	if (crh->iCenterDot > 0)
 	{
-		const bool bOdd = ((crh.iCenterDot % 2) == 1);
-		const int iHalf = crh.iCenterDot / 2;
+		const bool bOdd = ((crh->iCenterDot % 2) == 1);
+		const int iHalf = crh->iCenterDot / 2;
 		const int iStartCenter = bOdd ? iHalf + 1 : iHalf;
 		const int iEndCenter = iHalf;
+		const bool bSeparateColorDot = (crh->flags & CROSSHAIR_FLAG_SEPERATEDOTCOLOR);
 
-		if (crh.iOutline > 0)
+		if (crh->iOutline > 0)
 		{
-			vgui::surface()->DrawSetColor(crh.bSeparateColorDot ? crh.colorDotOutline : crh.colorOutline);
-			vgui::surface()->DrawFilledRect(-iStartCenter + x -crh.iOutline, -iStartCenter + y -crh.iOutline,
-											iEndCenter + x +crh.iOutline, iEndCenter + y +crh.iOutline);
+			vgui::surface()->DrawSetColor(bSeparateColorDot ? crh->colorDotOutline : crh->colorOutline);
+			vgui::surface()->DrawFilledRect(-iStartCenter + x -crh->iOutline, -iStartCenter + y -crh->iOutline,
+											iEndCenter + x +crh->iOutline, iEndCenter + y +crh->iOutline);
 		}
 
-		vgui::surface()->DrawSetColor(crh.bSeparateColorDot ? crh.colorDot : crh.color);
+		vgui::surface()->DrawSetColor(bSeparateColorDot ? crh->colorDot : crh->color);
 		vgui::surface()->DrawFilledRect(-iStartCenter + x, -iStartCenter + y, iEndCenter + x, iEndCenter + y);
 	}
 
 	if (iCircleRad > 0 && iCircleSegments > 0)
 	{
-		vgui::surface()->DrawSetColor(crh.color);
+		vgui::surface()->DrawSetColor(crh->color);
 		vgui::surface()->DrawOutlinedCircle(x, y, iCircleRad, iCircleSegments);
 	}
 }
@@ -178,15 +174,19 @@ enum NeoXHairSerial
 	NEOXHAIR_SERIAL_ALPHA_V19,
 	NEOXHAIR_SERIAL_ALPHA_V22,
 	NEOXHAIR_SERIAL_ALPHA_V28,
+	NEOXHAIR_SERIAL_ALPHA_V29,
 
 	NEOXHAIR_SERIAL__LATESTPLUSONE,
 	NEOXHAIR_SERIAL_CURRENT = NEOXHAIR_SERIAL__LATESTPLUSONE - 1,
 };
 
-void ResetCrosshairToDefault(CrosshairInfo *crh)
+void ResetCrosshairToDefault(CrosshairInfo *xhairInfo)
 {
+	xhairInfo->wepFlags = CROSSHAIR_WEP_FLAG_DEFAULT;
+	CrosshairWepInfo *crh = &(xhairInfo->wep[CROSSHAIR_WEP_DEFAULT]);
 	crh->iStyle = CROSSHAIR_STYLE_DEFAULT;
 	crh->color = COLOR_WHITE;
+	crh->flags = CROSSHAIR_FLAG_DEFAULT;
 	crh->eSizeType = CROSSHAIR_SIZETYPE_ABSOLUTE;
 	crh->iSize = 6;
 	crh->flScrSize = 0.0f;
@@ -194,21 +194,23 @@ void ResetCrosshairToDefault(CrosshairInfo *crh)
 	crh->iGap = 4;
 	crh->iOutline = 0;
 	crh->iCenterDot = 0;
-	crh->bTopLine = true;
 	crh->iCircleRad = 0;
 	crh->iCircleSegments = 0;
 	crh->eDynamicType = CROSSHAIR_DYNAMICTYPE_NONE;
-	crh->bSeparateColorDot = false;
 	crh->colorDot = COLOR_WHITE;
 	crh->colorDotOutline = COLOR_BLACK;
 	crh->colorOutline = COLOR_BLACK;
+	for (int i = 1; i < CROSSHAIR_WEP__TOTAL; ++i)
+	{
+		V_memcpy(&(xhairInfo->wep[i]), crh, sizeof(CrosshairWepInfo));
+	}
 }
 
 void DefaultCrosshairSerial(char (&szSequence)[NEO_XHAIR_SEQMAX])
 {
-	CrosshairInfo crh = {};
-	ResetCrosshairToDefault(&crh);
-	ExportCrosshair(&crh, szSequence);
+	CrosshairInfo xhairInfo = {};
+	ResetCrosshairToDefault(&xhairInfo);
+	ExportCrosshair(&xhairInfo, szSequence);
 }
 
 union NeoXHairVariant
@@ -317,7 +319,7 @@ enum ESerialMode
 	}
 }
 
-static void ImportOrExportCrosshair(const ESerialMode eSerialMode, CrosshairInfo *crh,
+static void ImportOrExportCrosshair(const ESerialMode eSerialMode, CrosshairInfo *xhairInfo,
 		char (&szMutSeq)[NEO_XHAIR_SEQMAX], const int iSeqSize)
 {
 	int idx = 0;
@@ -328,58 +330,93 @@ static void ImportOrExportCrosshair(const ESerialMode eSerialMode, CrosshairInfo
 	// v28 onwards cuts out segments if unused
 	const bool bNotCompact = (iSerialVersion < NEOXHAIR_SERIAL_ALPHA_V28);
 
-	crh->iStyle = SerialInt(crh->iStyle, eSerialMode, szMutSeq, iSeqSize, &idx);
-	crh->color.SetRawColor(SerialInt(crh->color.GetRawColor(), eSerialMode, szMutSeq, iSeqSize, &idx));
-
-	if (bNotCompact || crh->iStyle == CROSSHAIR_STYLE_CUSTOM)
+	if (iSerialVersion >= NEOXHAIR_SERIAL_ALPHA_V29)
 	{
-		crh->eSizeType = static_cast<NeoHudCrosshairSizeType>(SerialInt(crh->eSizeType, eSerialMode, szMutSeq, iSeqSize, &idx));
-		if (bNotCompact || crh->eSizeType == CROSSHAIR_SIZETYPE_ABSOLUTE)
-		{
-			crh->iSize = SerialInt(crh->iSize, eSerialMode, szMutSeq, iSeqSize, &idx);
-		}
-		if (bNotCompact || crh->eSizeType == CROSSHAIR_SIZETYPE_SCREEN)
-		{
-			crh->flScrSize = SerialFloat(crh->flScrSize, eSerialMode, szMutSeq, iSeqSize, &idx);
-		}
-		crh->iThick = SerialInt(crh->iThick, eSerialMode, szMutSeq, iSeqSize, &idx);
-		crh->iGap = SerialInt(crh->iGap, eSerialMode, szMutSeq, iSeqSize, &idx);
-		crh->iOutline = SerialInt(crh->iOutline, eSerialMode, szMutSeq, iSeqSize, &idx);
-		crh->iCenterDot = SerialInt(crh->iCenterDot, eSerialMode, szMutSeq, iSeqSize, &idx);
-		crh->bTopLine = SerialBool(crh->bTopLine, eSerialMode, szMutSeq, iSeqSize, &idx);
-		crh->iCircleRad = SerialInt(crh->iCircleRad, eSerialMode, szMutSeq, iSeqSize, &idx);
-		if (bNotCompact || crh->iCircleRad > 0)
-		{
-			crh->iCircleSegments = SerialInt(crh->iCircleSegments, eSerialMode, szMutSeq, iSeqSize, &idx);
-		}
-		
-		crh->eDynamicType = (iSerialVersion >= NEOXHAIR_SERIAL_ALPHA_V19)
-				? static_cast<NeoHudCrosshairDynamicType>(SerialInt(crh->eDynamicType, eSerialMode, szMutSeq, iSeqSize, &idx))
-				: CROSSHAIR_DYNAMICTYPE_NONE;
+		xhairInfo->wepFlags = SerialInt(xhairInfo->wepFlags, eSerialMode, szMutSeq, iSeqSize, &idx);
+	}
 
-		if (iSerialVersion >= NEOXHAIR_SERIAL_ALPHA_V22)
+	for (int i = 0; i < CROSSHAIR_WEP__TOTAL; ++i)
+	{
+		CrosshairWepInfo *crh = &xhairInfo->wep[i];
+
+		const bool bSkipThis = (i >= 1 && !(xhairInfo->wepFlags & (1 << (i - 1))));
+		if (bSkipThis)
 		{
-			if (bNotCompact || crh->iCenterDot > 0)
+			V_memcpy(crh, &xhairInfo->wep[CROSSHAIR_WEP_DEFAULT], sizeof(CrosshairWepInfo));
+			continue;
+		}
+
+		if (iSerialVersion >= NEOXHAIR_SERIAL_ALPHA_V29)
+		{
+			crh->flags = SerialInt(crh->flags, eSerialMode, szMutSeq, iSeqSize, &idx);
+		}
+		crh->iStyle = SerialInt(crh->iStyle, eSerialMode, szMutSeq, iSeqSize, &idx);
+		crh->color.SetRawColor(SerialInt(crh->color.GetRawColor(), eSerialMode, szMutSeq, iSeqSize, &idx));
+
+		if (bNotCompact || crh->iStyle == CROSSHAIR_STYLE_CUSTOM)
+		{
+			crh->eSizeType = static_cast<NeoHudCrosshairSizeType>(SerialInt(crh->eSizeType, eSerialMode, szMutSeq, iSeqSize, &idx));
+			if (bNotCompact || crh->eSizeType == CROSSHAIR_SIZETYPE_ABSOLUTE)
 			{
-				crh->bSeparateColorDot = SerialBool(crh->bSeparateColorDot, eSerialMode, szMutSeq, iSeqSize, &idx);
-				if (bNotCompact || crh->bSeparateColorDot)
+				crh->iSize = SerialInt(crh->iSize, eSerialMode, szMutSeq, iSeqSize, &idx);
+			}
+			if (bNotCompact || crh->eSizeType == CROSSHAIR_SIZETYPE_SCREEN)
+			{
+				crh->flScrSize = SerialFloat(crh->flScrSize, eSerialMode, szMutSeq, iSeqSize, &idx);
+			}
+			crh->iThick = SerialInt(crh->iThick, eSerialMode, szMutSeq, iSeqSize, &idx);
+			crh->iGap = SerialInt(crh->iGap, eSerialMode, szMutSeq, iSeqSize, &idx);
+			crh->iOutline = SerialInt(crh->iOutline, eSerialMode, szMutSeq, iSeqSize, &idx);
+			crh->iCenterDot = SerialInt(crh->iCenterDot, eSerialMode, szMutSeq, iSeqSize, &idx);
+			if (iSerialVersion < NEOXHAIR_SERIAL_ALPHA_V29)
+			{
+				const bool bTopLine = SerialBool(true, eSerialMode, szMutSeq, iSeqSize, &idx);
+				if (!bTopLine)
 				{
-					crh->colorDot.SetRawColor(SerialInt(crh->colorDot.GetRawColor(), eSerialMode, szMutSeq, iSeqSize, &idx));
-					if (bNotCompact || crh->iOutline > 0)
-					{
-						crh->colorDotOutline.SetRawColor(SerialInt(crh->colorDotOutline.GetRawColor(), eSerialMode, szMutSeq, iSeqSize, &idx));
-					}
+					crh->flags |= CROSSHAIR_FLAG_NOTOPLINE;
 				}
 			}
-			if (bNotCompact || crh->iOutline > 0)
+			crh->iCircleRad = SerialInt(crh->iCircleRad, eSerialMode, szMutSeq, iSeqSize, &idx);
+			if (bNotCompact || crh->iCircleRad > 0)
 			{
-				crh->colorOutline.SetRawColor(SerialInt(crh->colorOutline.GetRawColor(), eSerialMode, szMutSeq, iSeqSize, &idx));
+				crh->iCircleSegments = SerialInt(crh->iCircleSegments, eSerialMode, szMutSeq, iSeqSize, &idx);
+			}
+			
+			crh->eDynamicType = (iSerialVersion >= NEOXHAIR_SERIAL_ALPHA_V19)
+					? static_cast<NeoHudCrosshairDynamicType>(SerialInt(crh->eDynamicType, eSerialMode, szMutSeq, iSeqSize, &idx))
+					: CROSSHAIR_DYNAMICTYPE_NONE;
+
+			if (iSerialVersion >= NEOXHAIR_SERIAL_ALPHA_V22)
+			{
+				if (bNotCompact || crh->iCenterDot > 0)
+				{
+					if (iSerialVersion < NEOXHAIR_SERIAL_ALPHA_V29)
+					{
+						const bool bSeparateColorDot = SerialBool(false, eSerialMode, szMutSeq, iSeqSize, &idx);
+						if (bSeparateColorDot)
+						{
+							crh->flags |= CROSSHAIR_FLAG_SEPERATEDOTCOLOR;
+						}
+					}
+					if (bNotCompact || (crh->flags & CROSSHAIR_FLAG_SEPERATEDOTCOLOR))
+					{
+						crh->colorDot.SetRawColor(SerialInt(crh->colorDot.GetRawColor(), eSerialMode, szMutSeq, iSeqSize, &idx));
+						if (bNotCompact || crh->iOutline > 0)
+						{
+							crh->colorDotOutline.SetRawColor(SerialInt(crh->colorDotOutline.GetRawColor(), eSerialMode, szMutSeq, iSeqSize, &idx));
+						}
+					}
+				}
+				if (bNotCompact || crh->iOutline > 0)
+				{
+					crh->colorOutline.SetRawColor(SerialInt(crh->colorOutline.GetRawColor(), eSerialMode, szMutSeq, iSeqSize, &idx));
+				}
 			}
 		}
 	}
 }
 
-bool ImportCrosshair(CrosshairInfo *crh, const char *pszSequence)
+bool ImportCrosshair(CrosshairInfo *xhairInfo, const char *pszSequence)
 {
 	const int iSeqSize = V_strlen(pszSequence);
 	if (iSeqSize <= 0 || iSeqSize > NEO_XHAIR_SEQMAX)
@@ -391,14 +428,14 @@ bool ImportCrosshair(CrosshairInfo *crh, const char *pszSequence)
 	V_memcpy(szMutSeq, pszSequence, sizeof(char) * iSeqSize);
 	szMutSeq[iSeqSize] = '\0';
 
-	ResetCrosshairToDefault(crh);
-	ImportOrExportCrosshair(SERIALMODE_DESERIALIZE, crh, szMutSeq, iSeqSize);
+	ResetCrosshairToDefault(xhairInfo);
+	ImportOrExportCrosshair(SERIALMODE_DESERIALIZE, xhairInfo, szMutSeq, iSeqSize);
 	return true;
 }
 
-void ExportCrosshair(CrosshairInfo *crh, char (&szSequence)[NEO_XHAIR_SEQMAX])
+void ExportCrosshair(CrosshairInfo *xhairInfo, char (&szSequence)[NEO_XHAIR_SEQMAX])
 {
 	szSequence[0] = '\0';
-	ImportOrExportCrosshair(SERIALMODE_SERIALIZE, crh, szSequence, NEO_XHAIR_SEQMAX);
+	ImportOrExportCrosshair(SERIALMODE_SERIALIZE, xhairInfo, szSequence, NEO_XHAIR_SEQMAX);
 }
 

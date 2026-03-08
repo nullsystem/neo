@@ -169,6 +169,7 @@ struct NeoSettings
 
 	struct Crosshair
 	{
+		ENeoCrosshairWep eXHairWep;
 		CrosshairInfo info;
 		XHairExportNotify eClipboardInfo;
 		bool bNetworkCrosshair;

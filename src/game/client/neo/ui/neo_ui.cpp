@@ -1467,6 +1467,32 @@ void ResetTextures()
 	pHtTexMap->Purge();
 }
 
+void RingBoxFlag(const int iToggleFlag, int *iFlags)
+{
+	const bool bWasOnFlag = (*iFlags & iToggleFlag);
+	bool bNowOnFlag = bWasOnFlag;
+	RingBoxBool(&bNowOnFlag);
+	if (bNowOnFlag != bWasOnFlag)
+	{
+		if (bNowOnFlag)
+		{
+			*iFlags |= iToggleFlag;
+		}
+		else
+		{
+			*iFlags &= ~(iToggleFlag);
+		}
+	}
+}
+
+void RingBoxFlag(const wchar_t *wszLeftLabel, const int iToggleFlag, int *iFlags)
+{
+	BeginMultiWidgetHighlighter(2);
+	Label(wszLeftLabel);
+	RingBoxFlag(iToggleFlag, iFlags);
+	EndMultiWidgetHighlighter();
+}
+
 void RingBoxBool(bool *bChecked)
 {
 	int iIndex = static_cast<int>(*bChecked);

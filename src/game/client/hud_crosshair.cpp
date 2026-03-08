@@ -530,7 +530,13 @@ void CHudCrosshair::Paint( void )
 			m_bRefreshCrosshair = false;
 		}
 	}
-	const int iXHairStyle = pCrosshairInfo->iStyle;
+
+	ENeoCrosshairWep eNeoXHairWep = CROSSHAIR_WEP_DEFAULT;
+	if (pWeapon)
+	{
+		eNeoXHairWep = pWeapon->GetCrosshairWep();
+	}
+	CrosshairWepInfo *crh = pCrosshairInfo->wep[eNeoXHairWep];
 
 	trace_t iffTrace;
 	if (NEORules()->GetGameType() != NEO_GAME_TYPE_DM)
@@ -601,19 +607,23 @@ void CHudCrosshair::Paint( void )
 		vgui::surface()->DrawSetColor(COLOR_RED);
 		vgui::surface()->DrawTexturedRect(iX - iTexWide, iY - iTexTall, iX + iTexWide, iY + iTexTall);
 	}
-	else if (m_iTexXHId[iXHairStyle] > 0)
+	else if (m_iTexXHId[crh->iStyle] > 0)
 	{
-		vgui::surface()->DrawSetTexture(m_iTexXHId[iXHairStyle]);
+		vgui::surface()->DrawSetTexture(m_iTexXHId[crh->iStyle]);
 		int iTexWide, iTexTall;
-		vgui::surface()->DrawGetTextureSize(m_iTexXHId[iXHairStyle], iTexWide, iTexTall);
+		vgui::surface()->DrawGetTextureSize(m_iTexXHId[crh->iStyle], iTexWide, iTexTall);
 		iTexWide >>= 1;
 		iTexTall >>= 1;
-		vgui::surface()->DrawSetColor(pCrosshairInfo->color);
+		vgui::surface()->DrawSetColor(crh->color);
 		vgui::surface()->DrawTexturedRect(iX - iTexWide, iY - iTexTall, iX + iTexWide, iY + iTexTall);
 	}
 	else
 	{
-		PaintCrosshair(*pCrosshairInfo, HalfInaccuracyConeInScreenPixels(pWeapon, m_iHalfScreenWidth), iX, iY);
+		const bool bHideCrosshair = (NEORules() && NEORules()->GetHiddenHudElements() & NEO_HUD_ELEMENT_CROSSHAIR);
+		if (!bHideCrosshair)
+		{
+			PaintCrosshair(crh, HalfInaccuracyConeInScreenPixels(pWeapon, m_iHalfScreenWidth), iX, iY);
+		}
 	}
 
 	if (bIsScopedWep && pPlayer->m_bInAim)

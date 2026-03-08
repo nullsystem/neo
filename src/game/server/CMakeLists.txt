@@ -1376,6 +1376,7 @@ target_sources_grouped(
     ${CMAKE_SOURCE_DIR}/game/shared/neo/neo_enums.h
     ${CMAKE_SOURCE_DIR}/game/shared/neo/neo_crosshair.cpp
     ${CMAKE_SOURCE_DIR}/game/shared/neo/neo_crosshair.h
+    ${CMAKE_SOURCE_DIR}/game/shared/neo/neo_crosshair_wep.h
     neo/neo_bloom_controller.cpp
     neo/neo_client.cpp
     neo/neo_detpack.cpp

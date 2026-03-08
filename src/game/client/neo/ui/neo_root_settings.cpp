@@ -1252,6 +1252,13 @@ void NeoSettings_Crosshair(NeoSettings *ns)
 	g_uiCtx.dPanel.y += g_uiCtx.dPanel.tall;
 	g_uiCtx.dPanel.tall = g_uiCtx.layout.iRowTall * IVIEW_ROWS;
 
+	// TODO: Top section select crosshair weapon type
+	const bool bIsInUse = ((pCrosshair->eXHairWep == CROSSHAIR_WEP_DEFAULT) ||
+			(pCrosshair->info.wepFlags & (1 << (pCrosshair->eXHairWep - 1))));
+	if (!bIsInUse)
+	{
+	}
+
 	const bool bTextured = CROSSHAIR_FILES[pCrosshair->info.iStyle][0];
 	NeoUI::BeginSection(NeoUI::SECTIONFLAG_EXCLUDECONTROLLER);
 	{
@@ -1270,7 +1277,7 @@ void NeoSettings_Crosshair(NeoSettings *ns)
 		else
 		{
 			const int iPreviewDynamicAccuracy = (pCrosshair->bPreviewDynamicAccuracy) ? (Max(0, (int)(sin(gpGlobals->curtime) * 24) + 16)) : 0;
-			PaintCrosshair(pCrosshair->info, iPreviewDynamicAccuracy,
+			PaintCrosshair(&pCrosshair->info, iPreviewDynamicAccuracy,
 						   g_uiCtx.dPanel.x + g_uiCtx.iLayoutX + (g_uiCtx.dPanel.wide / 2),
 						   g_uiCtx.dPanel.y + g_uiCtx.iLayoutY + (g_uiCtx.dPanel.tall / 2));
 		}
@@ -1389,8 +1396,8 @@ void NeoSettings_Crosshair(NeoSettings *ns)
 			NeoUI::SliderInt(L"Center dot", &pCrosshair->info.iCenterDot, 0, CROSSHAIR_MAX_CENTER_DOT);
 			if (pCrosshair->info.iCenterDot > 0)
 			{
-				NeoUI::RingBoxBool(L"Separate dot color", &pCrosshair->info.bSeparateColorDot);
-				if (pCrosshair->info.bSeparateColorDot)
+				NeoUI::RingBoxFlag(L"Separate dot color", CROSSHAIR_FLAG_SEPERATEDOTCOLOR, &pCrosshair->info.flags);
+				if (pCrosshair->info.flags & CROSSHAIR_FLAG_SEPERATEDOTCOLOR)
 				{
 					NeoUI::ColorEdit(L"Dot color",
 							&pCrosshair->info.colorDot[0],
@@ -1407,7 +1414,7 @@ void NeoSettings_Crosshair(NeoSettings *ns)
 					}
 				}
 			}
-			NeoUI::RingBoxBool(L"Draw top line", &pCrosshair->info.bTopLine);
+			NeoUI::RingBoxFlag(L"Draw top line", CROSSHAIR_FLAG_NOTOPLINE, &pCrosshair->info.flags);
 			NeoUI::SliderInt(L"Circle radius", &pCrosshair->info.iCircleRad, 0, CROSSHAIR_MAX_CIRCLE_RAD);
 			if (pCrosshair->info.iCircleRad > 0)
 			{

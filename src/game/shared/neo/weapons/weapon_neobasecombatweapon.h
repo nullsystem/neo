@@ -6,6 +6,7 @@
 
 #ifdef CLIENT_DLL
 	#include "c_neo_player.h"
+	#include "neo_crosshair_wep.h"
 #else
 	#include "neo_player.h"
 #endif
@@ -130,6 +131,7 @@ public:
 
 #ifdef CLIENT_DLL
 	virtual void ClientThink() override;
+	virtual ENeoCrosshairWep GetCrosshairWep() const { return CROSSHAIR_WEP_DEFAULT; }
 #endif // CLIENT_DLL
 
 	virtual void Equip(CBaseCombatCharacter* pOwner) override;

@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include "Color.h"
+#include "neo_crosshair_wep.h"
 
 #ifdef CLIENT_DLL
 #include "neo_player_shared.h"
@@ -9,11 +10,11 @@
 class C_NEOBaseCombatWeapon;
 #endif // CLIENT_DLL
 
-// NEO NOTE (nullsystem): Max string length is 
-// something like: "2;2;-16711936;1;6;1.000;25;25;5;25;1;50;50;2;1;-16711936;-16711936;-16711936;"
-// which is ~77 for v5 serialization | 96 length is enough for now till
-// more comes in
-static constexpr const size_t NEO_XHAIR_SEQMAX = 96;
+// TODO CHECK: NEO NOTE (nullsystem): Max string length is 
+// TODO CHECK: something like: "2;2;-16711936;1;6;1.000;25;25;5;25;1;50;50;2;1;-16711936;-16711936;-16711936;"
+// TODO CHECK: which is ~77 for v5 serialization | 400 length is enough for now till
+// TODO CHECK: more comes in
+static constexpr const size_t NEO_XHAIR_SEQMAX = 400;
 static constexpr int CROSSHAIR_MAX_SIZE = 100;
 static constexpr int CROSSHAIR_MAX_THICKNESS = 25;
 static constexpr int CROSSHAIR_MAX_GAP = 25;
@@ -49,6 +50,24 @@ enum NeoHudCrosshairDynamicType
 	CROSSHAIR_DYNAMICTYPE__TOTAL,
 };
 
+enum NeoCrosshairWepFlag_
+{
+	CROSSHAIR_WEP_FLAG_DEFAULT = 0,
+	CROSSHAIR_WEP_FLAG_SECONDARY = 1 << 0,	// Pistols (EX: Milso, Tachi, Kyla)
+	CROSSHAIR_WEP_FLAG_SMG = 1 << 1,		// SMGs (EX: SRM, Jittie)
+	CROSSHAIR_WEP_FLAG_RIFLE = 1 << 2,		// Rifles (EX: ZR-, MX)
+	CROSSHAIR_WEP_FLAG_SHOTGUN = 1 << 3,	// Shotguns (EX: Supa, AA13)
+};
+typedef int NeoCrosshairWepFlags;
+
+enum NeoCrosshairFlag_
+{
+	CROSSHAIR_FLAG_DEFAULT = 0,
+	CROSSHAIR_FLAG_NOTOPLINE = 1 << 0,			// Do not draw top line
+	CROSSHAIR_FLAG_SEPERATEDOTCOLOR = 1 << 1,	// Draw dot as separate color
+};
+typedef int NeoCrosshairFlags;
+
 #ifdef CLIENT_DLL
 extern ConVar cl_neo_crosshair;
 extern ConVar cl_neo_crosshair_network;
@@ -59,10 +78,11 @@ extern const wchar_t **CROSSHAIR_SIZETYPE_LABELS;
 extern const wchar_t **CROSSHAIR_DYNAMICTYPE_LABELS;
 #endif // CLIENT_DLL
 
-struct CrosshairInfo
+struct CrosshairWepInfo
 {
 	int iStyle;
 	Color color;
+	NeoCrosshairFlags flags;
 	NeoHudCrosshairSizeType eSizeType;
 	int iSize;
 	float flScrSize;
@@ -70,27 +90,31 @@ struct CrosshairInfo
 	int iGap;
 	int iOutline;
 	int iCenterDot;
-	bool bTopLine;
 	int iCircleRad;
 	int iCircleSegments;
 	NeoHudCrosshairDynamicType eDynamicType;
-	bool bSeparateColorDot;
 	Color colorDot;
 	Color colorDotOutline;
 	Color colorOutline;
 };
 
+struct CrosshairInfo
+{
+	NeoCrosshairWepFlags wepFlags;
+	CrosshairWepInfo wep[CROSSHAIR_WEP__TOTAL];
+};
+
 #ifdef CLIENT_DLL
-void PaintCrosshair(const CrosshairInfo &crh, int inaccuracy, const int x, const int y);
+void PaintCrosshair(const CrosshairWepInfo *crh, const int inaccuracy, const int x, const int y);
 int HalfInaccuracyConeInScreenPixels(C_NEOBaseCombatWeapon *pWeapon, int halfScreenWidth);
 
 void InitializeClNeoCrosshair();
 #endif // CLIENT_DLL
 
-void ResetCrosshairToDefault(CrosshairInfo *crh);
+void ResetCrosshairToDefault(CrosshairInfo *xhairInfo);
 void DefaultCrosshairSerial(char (&szSequence)[NEO_XHAIR_SEQMAX]);
 
 // NEO NOTE (nullsystem): (*&)[NUM] enforces array size
-bool ImportCrosshair(CrosshairInfo *crh, const char *pszSequence);
-void ExportCrosshair(CrosshairInfo *crh, char (&szSequence)[NEO_XHAIR_SEQMAX]);
+bool ImportCrosshair(CrosshairInfo *xhairInfo, const char *pszSequence);
+void ExportCrosshair(CrosshairInfo *xhairInfo, char (&szSequence)[NEO_XHAIR_SEQMAX]);
 
