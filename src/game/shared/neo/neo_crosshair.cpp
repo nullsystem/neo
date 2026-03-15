@@ -209,7 +209,7 @@ void ResetCrosshairToDefault(CrosshairInfo *xhairInfo,
 	crh->colorOutline = COLOR_BLACK;
 	for (int i = 1; i < CROSSHAIR_WEP__TOTAL; ++i)
 	{
-		V_memcpy(&(xhairInfo->wep[i]), crh, sizeof(CrosshairWepInfo));
+		xhairInfo->wep[i] = *crh;
 	}
 	if (paeHipfireOpts)
 	{

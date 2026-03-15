@@ -35,8 +35,7 @@ static SerialVariant DeserialVariant(char (&szMutStr)[NEO_XHAIR_SEQMAX], const i
 		int *idx, const ESerialVariantType eType, const SerialVariant varDefault, int *piSkipIdx,
 		const SerialVariant varMin, const SerialVariant varMax)
 {
-	SerialVariant var = {};
-	V_memcpy(&var, &varDefault, sizeof(SerialVariant));
+	SerialVariant var = varDefault;
 	if (*piSkipIdx > 0)
 	{
 		--(*piSkipIdx);
@@ -61,23 +60,23 @@ static SerialVariant DeserialVariant(char (&szMutStr)[NEO_XHAIR_SEQMAX], const i
 					{
 					case SERIALVARIANTTYPE_INT:
 					{
-						const int iInitVal = atoi(pszCurSegment);
+						const int iInitVal = V_atoi(pszCurSegment);
 						var.iVal = (varMin.iVal < varMax.iVal) ? clamp(iInitVal, varMin.iVal, varMax.iVal) : iInitVal;
 					} break;
 					case SERIALVARIANTTYPE_BOOL:
 					{
-						var.bVal = (atoi(pszCurSegment) != 0);
+						var.bVal = (V_atoi(pszCurSegment) != 0);
 					} break;
 					case SERIALVARIANTTYPE_FLOAT:
 					{
-						const float flInitVal = static_cast<float>(atof(pszCurSegment));
+						const float flInitVal = static_cast<float>(V_atof(pszCurSegment));
 						var.flVal = (varMin.flVal < varMax.flVal) ? clamp(flInitVal, varMin.flVal, varMax.flVal) : flInitVal;
 					} break;
 					}
 				}
 				else if (endCh == CH_XH_SEGSKIP) // Run-length encoding skip
 				{
-					const int iSkipLen = atoi(pszCurSegment);
+					const int iSkipLen = V_atoi(pszCurSegment);
 					if (iSkipLen > 1)
 					{
 						*piSkipIdx = iSkipLen - 1;
