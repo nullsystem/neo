@@ -10,6 +10,7 @@ void TestDeserial_V1_PREALPHA_V8_2()
 	CrosshairInfo xhairInfo = {};
 	const bool bValid = ImportCrosshair(&xhairInfo, "1;");
 	TEST_COMPARE_INT(bValid, false);
+	TEST_COMPARE_INT(false, ValidateCrosshairSerial("1;"));
 }
 
 void TestDeserial_V2_ALPHA_V17()
@@ -59,9 +60,11 @@ void TestDeserial_V2_ALPHA_V17()
 	char szExportSeq[NEO_XHAIR_SEQMAX];
 	ExportCrosshair(&xhairInfo, szExportSeq);
 	TEST_COMPARE_STR(szExportSeq, SERIAL_TEST_LATEST_STR);
+	TEST_COMPARE_INT(true, ValidateCrosshairSerial(szExportSeq));
 
 	ExportCrosshair(&xhairInfo, szExportSeq, NEOXHAIR_SERIAL_ALPHA_V17);
 	TEST_COMPARE_STR(szExportSeq, SERIAL_TEST_STR);
+	TEST_COMPARE_INT(true, ValidateCrosshairSerial(szExportSeq));
 }
 
 void TestDeserial_V3_ALPHA_V19()
@@ -111,9 +114,11 @@ void TestDeserial_V3_ALPHA_V19()
 	char szExportSeq[NEO_XHAIR_SEQMAX];
 	ExportCrosshair(&xhairInfo, szExportSeq);
 	TEST_COMPARE_STR(szExportSeq, SERIAL_TEST_LATEST_STR);
+	TEST_COMPARE_INT(true, ValidateCrosshairSerial(szExportSeq));
 
 	ExportCrosshair(&xhairInfo, szExportSeq, NEOXHAIR_SERIAL_ALPHA_V19);
 	TEST_COMPARE_STR(szExportSeq, SERIAL_TEST_STR);
+	TEST_COMPARE_INT(true, ValidateCrosshairSerial(szExportSeq));
 }
 
 void TestDeserial_V4_ALPHA_V22()
@@ -157,9 +162,11 @@ void TestDeserial_V4_ALPHA_V22()
 	char szExportSeq[NEO_XHAIR_SEQMAX];
 	ExportCrosshair(&xhairInfo, szExportSeq);
 	TEST_COMPARE_STR(szExportSeq, SERIAL_TEST_LATEST_STR);
+	TEST_COMPARE_INT(true, ValidateCrosshairSerial(szExportSeq));
 
 	ExportCrosshair(&xhairInfo, szExportSeq, NEOXHAIR_SERIAL_ALPHA_V22);
 	TEST_COMPARE_STR(szExportSeq, SERIAL_TEST_STR);
+	TEST_COMPARE_INT(true, ValidateCrosshairSerial(szExportSeq));
 }
 
 void TestDeserial_V5_ALPHA_V28()
@@ -209,9 +216,11 @@ void TestDeserial_V5_ALPHA_V28()
 	char szExportSeq[NEO_XHAIR_SEQMAX];
 	ExportCrosshair(&xhairInfo, szExportSeq);
 	TEST_COMPARE_STR(szExportSeq, SERIAL_TEST_LATEST_STR);
+	TEST_COMPARE_INT(true, ValidateCrosshairSerial(szExportSeq));
 
 	ExportCrosshair(&xhairInfo, szExportSeq, NEOXHAIR_SERIAL_ALPHA_V28);
 	TEST_COMPARE_STR(szExportSeq, SERIAL_TEST_STR);
+	TEST_COMPARE_INT(true, ValidateCrosshairSerial(szExportSeq));
 }
 
 void TestDeserial_V6_ALPHA_V29()
@@ -263,9 +272,11 @@ void TestDeserial_V6_ALPHA_V29()
 	char szExportSeq[NEO_XHAIR_SEQMAX];
 	ExportCrosshair(&xhairInfo, szExportSeq);
 	TEST_COMPARE_STR(szExportSeq, SERIAL_TEST_LATEST_STR);
+	TEST_COMPARE_INT(true, ValidateCrosshairSerial(szExportSeq));
 
 	ExportCrosshair(&xhairInfo, szExportSeq, NEOXHAIR_SERIAL_ALPHA_V29);
 	TEST_COMPARE_STR(szExportSeq, SERIAL_TEST_STR);
+	TEST_COMPARE_INT(true, ValidateCrosshairSerial(szExportSeq));
 }
 
 void TestSerial_LongestLength()
@@ -341,6 +352,7 @@ void TestSerial_LongestLength()
 	// Make sure it's not maxing out the string
 	TEST_VERIFY(V_strlen(szExportSeq) < (NEO_XHAIR_SEQMAX - 1 - 1));
 	TEST_COMPARE_STR(szExportSeq, SERIAL_TEST_STR);
+	TEST_COMPARE_INT(true, ValidateCrosshairSerial(szExportSeq));
 }
 
 void TestFailure_Invalid_SerialValues()
@@ -352,7 +364,7 @@ void TestFailure_Invalid_SerialValues()
 	TEST_COMPARE_INT(ImportCrosshair(&xhairInfo, "-999999;"), false);
 }
 
-void TestFailure_OutOfBound_Under()
+void TestFailure_OutOfBoundStr_Under()
 {
 	CrosshairInfo xhairDef = {};
 	ResetCrosshairToDefault(&xhairDef);
@@ -370,7 +382,7 @@ void TestFailure_OutOfBound_Under()
 	TEST_COMPARE_INT(chr->eDynamicType, defChr->eDynamicType);
 }
 
-void TestFailure_OutOfBound_Over()
+void TestFailure_OutOfBoundStr_Over()
 {
 	CrosshairInfo xhairInfo = {};
 	TEST_COMPARE_INT(ImportCrosshair(&xhairInfo, "6;0;0;2;2;-1;0;3;2;4;1;6;5;7;1;-16776961;-16711936;-65536;12;24;48;"), true);
@@ -393,6 +405,57 @@ void TestFailure_OutOfBound_Over()
 	TEST_VERIFY(0 == V_memcmp(chr, &xhairInfo.wep[CROSSHAIR_WEP_DEFAULT_HIPFIRE], sizeof(CrosshairWepInfo)));
 	TEST_VERIFY(0 == V_memcmp(chr, &xhairInfo.wep[CROSSHAIR_WEP_SECONDARY_HIPFIRE], sizeof(CrosshairWepInfo)));
 	TEST_VERIFY(0 == V_memcmp(chr, &xhairInfo.wep[CROSSHAIR_WEP_SHOTGUN_HIPFIRE], sizeof(CrosshairWepInfo)));
+}
+
+void TestFailure_OutOfBoundValues()
+{
+	static const char SERIAL_TEST_STR_OUTBOUND[] = CURRENT_VER ";0;0;2;99;-1;-2;101;123;-111;1000;999;121212;123;80;-16776961;-16711936;-65536;";
+	static const char SERIAL_TEST_STR_FIXED[] = CURRENT_VER ";0;0;2;2;-1;0;100;25;0;5;25;50;50;3;-16776961;-16711936;-65536;";
+
+	CrosshairInfo xhairDef = {};
+	ResetCrosshairToDefault(&xhairDef);
+	const CrosshairWepInfo *defChr = &xhairDef.wep[CROSSHAIR_WEP_DEFAULT];
+
+	CrosshairInfo xhairInfo = {};
+	const bool bValid = ImportCrosshair(&xhairInfo, SERIAL_TEST_STR_OUTBOUND);
+	TEST_COMPARE_INT(bValid, true);
+	TEST_COMPARE_INT(xhairInfo.wepFlags, CROSSHAIR_WEP_FLAG_DEFAULT);
+	TEST_COMPARE_INT(xhairInfo.hipfireFlags, CROSSHAIR_HIPFIRECUSTOM_FLAG_NIL);
+
+	const CrosshairWepInfo *chr = &xhairInfo.wep[CROSSHAIR_WEP_DEFAULT];
+
+	// Test values that's from the string itself
+	TEST_COMPARE_INT(chr->iStyle, CROSSHAIR_STYLE_CUSTOM); // 99 -> 2
+	TEST_COMPARE_INT(chr->color.GetRawColor(), -1); 
+	TEST_COMPARE_INT(chr->flags, CROSSHAIR_FLAG_SEPERATEDOTCOLOR);
+	TEST_COMPARE_INT(chr->eSizeType, CROSSHAIR_SIZETYPE_ABSOLUTE); // -2 -> 0
+	TEST_COMPARE_INT(chr->iSize, CROSSHAIR_MAX_SIZE); // 101 -> 100
+	TEST_COMPARE_INT(chr->iThick, CROSSHAIR_MAX_THICKNESS); // 123 -> 25
+	TEST_COMPARE_INT(chr->iGap, 0); // -111 -> 0
+	TEST_COMPARE_INT(chr->iOutline, CROSSHAIR_MAX_OUTLINE); // 1000 -> 5
+	TEST_COMPARE_INT(chr->iCenterDot, CROSSHAIR_MAX_CENTER_DOT); // 999 -> 25
+	TEST_COMPARE_INT(chr->iCircleRad, CROSSHAIR_MAX_CIRCLE_RAD); // 121212 -> 50
+	TEST_COMPARE_INT(chr->iCircleSegments, CROSSHAIR_MAX_CIRCLE_SEGMENTS); // 123 -> 50
+	TEST_COMPARE_INT(chr->eDynamicType, CROSSHAIR_DYNAMICTYPE_SIZE); // 80 -> 3
+	TEST_COMPARE_INT(chr->colorDot.GetRawColor(), Color(255, 0, 0, 255).GetRawColor());
+	TEST_COMPARE_INT(chr->colorDotOutline.GetRawColor(), Color(0, 255, 0, 255).GetRawColor());
+	TEST_COMPARE_INT(chr->colorOutline.GetRawColor(), Color(0, 0, 255, 255).GetRawColor());
+
+	// Test default values
+	TEST_COMPARE_FLT(chr->flScrSize, defChr->flScrSize, 0.0001f);
+
+	TEST_VERIFY(0 == V_memcmp(chr, &xhairInfo.wep[CROSSHAIR_WEP_SECONDARY], sizeof(CrosshairWepInfo)));
+	TEST_VERIFY(0 == V_memcmp(chr, &xhairInfo.wep[CROSSHAIR_WEP_SHOTGUN], sizeof(CrosshairWepInfo)));
+	TEST_VERIFY(0 == V_memcmp(chr, &xhairInfo.wep[CROSSHAIR_WEP_DEFAULT_HIPFIRE], sizeof(CrosshairWepInfo)));
+	TEST_VERIFY(0 == V_memcmp(chr, &xhairInfo.wep[CROSSHAIR_WEP_SECONDARY_HIPFIRE], sizeof(CrosshairWepInfo)));
+	TEST_VERIFY(0 == V_memcmp(chr, &xhairInfo.wep[CROSSHAIR_WEP_SHOTGUN_HIPFIRE], sizeof(CrosshairWepInfo)));
+
+	char szExportSeq[NEO_XHAIR_SEQMAX];
+	ExportCrosshair(&xhairInfo, szExportSeq);
+	TEST_COMPARE_STR(szExportSeq, SERIAL_TEST_STR_FIXED);
+
+	TEST_COMPARE_INT(true, ValidateCrosshairSerial(SERIAL_TEST_STR_FIXED));
+	TEST_COMPARE_INT(false, ValidateCrosshairSerial(SERIAL_TEST_STR_OUTBOUND));
 }
 
 void TestFeature_Omit_Style_Default()
@@ -422,6 +485,7 @@ void TestFeature_Omit_Style_Default()
 	char szExportSeq[NEO_XHAIR_SEQMAX];
 	ExportCrosshair(&xhairInfo, szExportSeq);
 	TEST_COMPARE_STR(szExportSeq, SERIAL_TEST_STR);
+	TEST_COMPARE_INT(true, ValidateCrosshairSerial(szExportSeq));
 }
 
 void TestFeature_Omit_Style_AltB()
@@ -451,6 +515,7 @@ void TestFeature_Omit_Style_AltB()
 	char szExportSeq[NEO_XHAIR_SEQMAX];
 	ExportCrosshair(&xhairInfo, szExportSeq);
 	TEST_COMPARE_STR(szExportSeq, SERIAL_TEST_STR);
+	TEST_COMPARE_INT(true, ValidateCrosshairSerial(szExportSeq));
 }
 
 void TestFeature_Omit_SizeType_Absolute()
@@ -479,6 +544,7 @@ void TestFeature_Omit_SizeType_Absolute()
 	char szExportSeq[NEO_XHAIR_SEQMAX];
 	ExportCrosshair(&xhairInfo, szExportSeq);
 	TEST_COMPARE_STR(szExportSeq, SERIAL_TEST_STR);
+	TEST_COMPARE_INT(true, ValidateCrosshairSerial(szExportSeq));
 }
 
 void TestFeature_Omit_SizeType_Screen()
@@ -507,6 +573,7 @@ void TestFeature_Omit_SizeType_Screen()
 	char szExportSeq[NEO_XHAIR_SEQMAX];
 	ExportCrosshair(&xhairInfo, szExportSeq);
 	TEST_COMPARE_STR(szExportSeq, SERIAL_TEST_STR);
+	TEST_COMPARE_INT(true, ValidateCrosshairSerial(szExportSeq));
 }
 
 void TestFeature_Omit_CircleRad_Empty()
@@ -534,6 +601,7 @@ void TestFeature_Omit_CircleRad_Empty()
 	char szExportSeq[NEO_XHAIR_SEQMAX];
 	ExportCrosshair(&xhairInfo, szExportSeq);
 	TEST_COMPARE_STR(szExportSeq, SERIAL_TEST_STR);
+	TEST_COMPARE_INT(true, ValidateCrosshairSerial(szExportSeq));
 }
 
 void TestFeature_Omit_CircleRad_Used()
@@ -557,6 +625,7 @@ void TestFeature_Omit_CircleRad_Used()
 	char szExportSeq[NEO_XHAIR_SEQMAX];
 	ExportCrosshair(&xhairInfo, szExportSeq);
 	TEST_COMPARE_STR(szExportSeq, SERIAL_TEST_STR);
+	TEST_COMPARE_INT(true, ValidateCrosshairSerial(szExportSeq));
 }
 
 void TestFeature_Omit_Outline_Empty()
@@ -584,6 +653,7 @@ void TestFeature_Omit_Outline_Empty()
 	char szExportSeq[NEO_XHAIR_SEQMAX];
 	ExportCrosshair(&xhairInfo, szExportSeq);
 	TEST_COMPARE_STR(szExportSeq, SERIAL_TEST_STR);
+	TEST_COMPARE_INT(true, ValidateCrosshairSerial(szExportSeq));
 }
 
 void TestFeature_Omit_Outline_Used()
@@ -607,6 +677,7 @@ void TestFeature_Omit_Outline_Used()
 	char szExportSeq[NEO_XHAIR_SEQMAX];
 	ExportCrosshair(&xhairInfo, szExportSeq);
 	TEST_COMPARE_STR(szExportSeq, SERIAL_TEST_STR);
+	TEST_COMPARE_INT(true, ValidateCrosshairSerial(szExportSeq));
 }
 
 void TestFeature_Omit_CenterDot_Empty()
@@ -637,6 +708,7 @@ void TestFeature_Omit_CenterDot_Empty()
 	char szExportSeq[NEO_XHAIR_SEQMAX];
 	ExportCrosshair(&xhairInfo, szExportSeq);
 	TEST_COMPARE_STR(szExportSeq, SERIAL_TEST_STR);
+	TEST_COMPARE_INT(true, ValidateCrosshairSerial(szExportSeq));
 }
 
 void TestFeature_Omit_CenterDot_SepDotColor_Not()
@@ -668,6 +740,7 @@ void TestFeature_Omit_CenterDot_SepDotColor_Not()
 	char szExportSeq[NEO_XHAIR_SEQMAX];
 	ExportCrosshair(&xhairInfo, szExportSeq);
 	TEST_COMPARE_STR(szExportSeq, SERIAL_TEST_STR);
+	TEST_COMPARE_INT(true, ValidateCrosshairSerial(szExportSeq));
 }
 
 void TestFeature_Omit_CenterDot_SepDotColor_NoOutline()
@@ -698,6 +771,7 @@ void TestFeature_Omit_CenterDot_SepDotColor_NoOutline()
 	char szExportSeq[NEO_XHAIR_SEQMAX];
 	ExportCrosshair(&xhairInfo, szExportSeq);
 	TEST_COMPARE_STR(szExportSeq, SERIAL_TEST_STR);
+	TEST_COMPARE_INT(true, ValidateCrosshairSerial(szExportSeq));
 }
 
 void TestFeature_Omit_CenterDot_SepDotColor_WithOutline()
@@ -724,6 +798,7 @@ void TestFeature_Omit_CenterDot_SepDotColor_WithOutline()
 	char szExportSeq[NEO_XHAIR_SEQMAX];
 	ExportCrosshair(&xhairInfo, szExportSeq);
 	TEST_COMPARE_STR(szExportSeq, SERIAL_TEST_STR);
+	TEST_COMPARE_INT(true, ValidateCrosshairSerial(szExportSeq));
 }
 
 void TestFeature_Flags_OldBool_None()
@@ -752,9 +827,11 @@ void TestFeature_Flags_OldBool_None()
 	char szExportSeq[NEO_XHAIR_SEQMAX];
 	ExportCrosshair(&xhairInfo, szExportSeq);
 	TEST_COMPARE_STR(szExportSeq, SERIAL_TEST_LATEST_STR);
+	TEST_COMPARE_INT(true, ValidateCrosshairSerial(szExportSeq));
 
 	ExportCrosshair(&xhairInfo, szExportSeq, NEOXHAIR_SERIAL_ALPHA_V22);
 	TEST_COMPARE_STR(szExportSeq, SERIAL_TEST_STR);
+	TEST_COMPARE_INT(true, ValidateCrosshairSerial(szExportSeq));
 }
 
 void TestFeature_Flags_OldBool_ToplineOff()
@@ -783,9 +860,11 @@ void TestFeature_Flags_OldBool_ToplineOff()
 	char szExportSeq[NEO_XHAIR_SEQMAX];
 	ExportCrosshair(&xhairInfo, szExportSeq);
 	TEST_COMPARE_STR(szExportSeq, SERIAL_TEST_LATEST_STR);
+	TEST_COMPARE_INT(true, ValidateCrosshairSerial(szExportSeq));
 
 	ExportCrosshair(&xhairInfo, szExportSeq, NEOXHAIR_SERIAL_ALPHA_V22);
 	TEST_COMPARE_STR(szExportSeq, SERIAL_TEST_STR);
+	TEST_COMPARE_INT(true, ValidateCrosshairSerial(szExportSeq));
 }
 
 void TestFeature_Flags_OldBool_SepDotColor()
@@ -814,9 +893,11 @@ void TestFeature_Flags_OldBool_SepDotColor()
 	char szExportSeq[NEO_XHAIR_SEQMAX];
 	ExportCrosshair(&xhairInfo, szExportSeq);
 	TEST_COMPARE_STR(szExportSeq, SERIAL_TEST_LATEST_STR);
+	TEST_COMPARE_INT(true, ValidateCrosshairSerial(szExportSeq));
 
 	ExportCrosshair(&xhairInfo, szExportSeq, NEOXHAIR_SERIAL_ALPHA_V22);
 	TEST_COMPARE_STR(szExportSeq, SERIAL_TEST_STR);
+	TEST_COMPARE_INT(true, ValidateCrosshairSerial(szExportSeq));
 }
 
 void TestFeature_Flags_OldBool_ToplineOff_SepDotColor()
@@ -845,9 +926,11 @@ void TestFeature_Flags_OldBool_ToplineOff_SepDotColor()
 	char szExportSeq[NEO_XHAIR_SEQMAX];
 	ExportCrosshair(&xhairInfo, szExportSeq);
 	TEST_COMPARE_STR(szExportSeq, SERIAL_TEST_LATEST_STR);
+	TEST_COMPARE_INT(true, ValidateCrosshairSerial(szExportSeq));
 
 	ExportCrosshair(&xhairInfo, szExportSeq, NEOXHAIR_SERIAL_ALPHA_V22);
 	TEST_COMPARE_STR(szExportSeq, SERIAL_TEST_STR);
+	TEST_COMPARE_INT(true, ValidateCrosshairSerial(szExportSeq));
 }
 
 void TestFeature_Flags_Topline_Off()
@@ -869,6 +952,7 @@ void TestFeature_Flags_Topline_Off()
 	char szExportSeq[NEO_XHAIR_SEQMAX];
 	ExportCrosshair(&xhairInfo, szExportSeq);
 	TEST_COMPARE_STR(szExportSeq, SERIAL_TEST_STR);
+	TEST_COMPARE_INT(true, ValidateCrosshairSerial(szExportSeq));
 }
 
 void TestFeature_Flags_Topline_Off_SepDotColor()
@@ -890,6 +974,7 @@ void TestFeature_Flags_Topline_Off_SepDotColor()
 	char szExportSeq[NEO_XHAIR_SEQMAX];
 	ExportCrosshair(&xhairInfo, szExportSeq);
 	TEST_COMPARE_STR(szExportSeq, SERIAL_TEST_STR);
+	TEST_COMPARE_INT(true, ValidateCrosshairSerial(szExportSeq));
 }
 
 void TestFeature_RunLengthEncode_Full()
@@ -924,6 +1009,7 @@ void TestFeature_RunLengthEncode_Full()
 	char szExportSeq[NEO_XHAIR_SEQMAX];
 	ExportCrosshair(&xhairInfo, szExportSeq);
 	TEST_COMPARE_STR(szExportSeq, SERIAL_TEST_STR);
+	TEST_COMPARE_INT(true, ValidateCrosshairSerial(szExportSeq));
 
 	CrosshairInfo xhairInfoImport = {};
 	ImportCrosshair(&xhairInfoImport, szExportSeq);
@@ -1020,6 +1106,7 @@ void TestFeature_RunLengthEncode_Partial()
 	char szExportSeq[NEO_XHAIR_SEQMAX];
 	ExportCrosshair(&xhairInfo, szExportSeq);
 	TEST_COMPARE_STR(szExportSeq, SERIAL_TEST_STR);
+	TEST_COMPARE_INT(true, ValidateCrosshairSerial(szExportSeq));
 
 	CrosshairInfo xhairInfoImport = {};
 	ImportCrosshair(&xhairInfoImport, szExportSeq);
@@ -1063,8 +1150,9 @@ TEST_INIT()
 	TEST_RUN(TestDeserial_V6_ALPHA_V29);
 	TEST_RUN(TestSerial_LongestLength);
 	TEST_RUN(TestFailure_Invalid_SerialValues);
-	TEST_RUN(TestFailure_OutOfBound_Under);
-	TEST_RUN(TestFailure_OutOfBound_Over);
+	TEST_RUN(TestFailure_OutOfBoundStr_Under);
+	TEST_RUN(TestFailure_OutOfBoundStr_Over);
+	TEST_RUN(TestFailure_OutOfBoundValues);
 	TEST_RUN(TestFeature_Omit_Style_Default);
 	TEST_RUN(TestFeature_Omit_Style_AltB);
 	TEST_RUN(TestFeature_Omit_SizeType_Absolute);

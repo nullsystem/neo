@@ -538,6 +538,7 @@ void CHudCrosshair::Paint( void )
 				UseCrosshairIndexFor(pCrosshairInfo, iNeoXHairWep, &bHideCrosshair));
 	}
 	CrosshairWepInfo *crh = &pCrosshairInfo->wep[eNeoXHairWep];
+	const int iTexXHId = m_iTexXHId[clamp(crh->iStyle, 0, CROSSHAIR_STYLE__TOTAL - 1)];
 
 	bool showFriendlyFireCrosshair = false;
 	if (NEORules()->GetGameType() != NEO_GAME_TYPE_DM && cl_neo_crosshair_friendly_fire_warning.GetBool())
@@ -610,11 +611,11 @@ void CHudCrosshair::Paint( void )
 		vgui::surface()->DrawSetColor(COLOR_RED);
 		vgui::surface()->DrawTexturedRect(iX - iTexWide, iY - iTexTall, iX + iTexWide, iY + iTexTall);
 	}
-	else if (m_iTexXHId[crh->iStyle] > 0)
+	else if (iTexXHId > 0)
 	{
-		vgui::surface()->DrawSetTexture(m_iTexXHId[crh->iStyle]);
+		vgui::surface()->DrawSetTexture(iTexXHId);
 		int iTexWide, iTexTall;
-		vgui::surface()->DrawGetTextureSize(m_iTexXHId[crh->iStyle], iTexWide, iTexTall);
+		vgui::surface()->DrawGetTextureSize(iTexXHId, iTexWide, iTexTall);
 		iTexWide >>= 1;
 		iTexTall >>= 1;
 		vgui::surface()->DrawSetColor(crh->color);

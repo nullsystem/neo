@@ -183,6 +183,33 @@ void InitializeClNeoCrosshair()
 	cl_neo_crosshair.SetDefault(static_szCrhSerialDefault);
 }
 
+void NeoConVarCrosshairChangeCallback(IConVar *cvar, const char *pOldVal, [[maybe_unused]] float flOldVal)
+{
+	static bool bStaticCallbackChangedXHairCVar = false;
+	if (bStaticCallbackChangedXHairCVar)
+	{
+		return;
+	}
+
+	ConVarRef cvarRef(cvar);
+	if (false == ValidateCrosshairSerial(cvarRef.GetString()))
+	{
+		bStaticCallbackChangedXHairCVar = true;
+		char mutStr[NEO_XHAIR_SEQMAX];
+		if (ValidateCrosshairSerial(pOldVal))
+		{
+			V_strcpy_safe(mutStr, pOldVal);
+		}
+		else
+		{
+			DefaultCrosshairSerial(mutStr);
+		}
+		Q_UnicodeRepair(mutStr);
+		cvarRef.SetValue(mutStr);
+		bStaticCallbackChangedXHairCVar = false;
+	}
+}
+
 #endif // CLIENT_DLL
 
 void ResetCrosshairToDefault(CrosshairInfo *xhairInfo,
@@ -390,10 +417,32 @@ static bool ImportOrExportCrosshair(const ESerialMode eSerialMode, CrosshairInfo
 		}
 	}
 
+	if (SERIALMODE_CHECK == ctx.eSerialMode)
+	{
+		return (false == ctx.bOutOfBound);
+	}
+
 	// Further compress with RLE
 	SerialRLEncode(szMutSeq, ctx.eSerialMode);
-
 	return true;
+}
+
+bool ValidateCrosshairSerial(const char *pszSequence)
+{
+	const int iSeqSize = V_strlen(pszSequence);
+	if (iSeqSize <= 0 || iSeqSize > NEO_XHAIR_SEQMAX)
+	{
+		return false;
+	}
+
+	char szMutSeq[NEO_XHAIR_SEQMAX];
+	V_memcpy(szMutSeq, pszSequence, sizeof(char) * iSeqSize);
+	szMutSeq[iSeqSize] = '\0';
+
+	CrosshairInfo xhairInfo = {};
+	ResetCrosshairToDefault(&xhairInfo, nullptr);
+
+	return ImportOrExportCrosshair(SERIALMODE_CHECK, &xhairInfo, szMutSeq, iSeqSize, NEOXHAIR_SERIAL_CURRENT);
 }
 
 bool ImportCrosshair(CrosshairInfo *xhairInfo, const char *pszSequence,
@@ -443,5 +492,8 @@ void ExportCrosshair(CrosshairInfo *xhairInfo, char (&szSequence)[NEO_XHAIR_SEQM
 	szSequence[0] = '\0';
 	ImportOrExportCrosshair(SERIALMODE_SERIALIZE, xhairInfo, szSequence, NEO_XHAIR_SEQMAX
 			, iExportSerialVersion);
+#ifdef DEBUG
+	Assert(ValidateCrosshairSerial(szSequence));
+#endif
 }
 

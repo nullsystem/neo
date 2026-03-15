@@ -31,21 +31,23 @@ static void StrCatCh(char (&szMutStr)[NEO_XHAIR_SEQMAX], const char ch)
 	}
 }
 
-static SerialVariant DeserialVariant(char (&szMutStr)[NEO_XHAIR_SEQMAX], const int iSzMutStrSize,
-		int *idx, const ESerialVariantType eType, const SerialVariant varDefault, int *piSkipIdx,
-		const SerialVariant varMin, const SerialVariant varMax)
+static SerialVariant DeserialVariant(char (&szMutStr)[NEO_XHAIR_SEQMAX],
+		const ESerialVariantType eType, const SerialVariant varDefault,
+		const SerialVariant varMin, const SerialVariant varMax, SerialContext *ctx)
 {
 	SerialVariant var = varDefault;
-	if (*piSkipIdx > 0)
+
+	if (ctx->iSkipIdx > 0)
 	{
-		--(*piSkipIdx);
+		--(ctx->iSkipIdx);
 		return var;
 	}
 
+	int *idx = &ctx->idx;
 	const int iPrevSegment = *idx;
-	Assert(iSzMutStrSize <= NEO_XHAIR_SEQMAX);
+	Assert(ctx->iSeqSize <= NEO_XHAIR_SEQMAX);
 
-	for (; *idx < iSzMutStrSize; ++(*idx))
+	for (; *idx < ctx->iSeqSize; ++(*idx))
 	{
 		const char endCh = szMutStr[*idx];
 		if (endCh == CH_XH_SEGEND || endCh == CH_XH_SEGSKIP)
@@ -61,6 +63,10 @@ static SerialVariant DeserialVariant(char (&szMutStr)[NEO_XHAIR_SEQMAX], const i
 					case SERIALVARIANTTYPE_INT:
 					{
 						const int iInitVal = V_atoi(pszCurSegment);
+						if (SERIALMODE_CHECK == ctx->eSerialMode && varMin.iVal < varMax.iVal)
+						{
+							ctx->bOutOfBound = (iInitVal > varMax.iVal || iInitVal < varMin.iVal);
+						}
 						var.iVal = (varMin.iVal < varMax.iVal) ? clamp(iInitVal, varMin.iVal, varMax.iVal) : iInitVal;
 					} break;
 					case SERIALVARIANTTYPE_BOOL:
@@ -70,6 +76,10 @@ static SerialVariant DeserialVariant(char (&szMutStr)[NEO_XHAIR_SEQMAX], const i
 					case SERIALVARIANTTYPE_FLOAT:
 					{
 						const float flInitVal = static_cast<float>(V_atof(pszCurSegment));
+						if (SERIALMODE_CHECK == ctx->eSerialMode && varMin.flVal < varMax.flVal)
+						{
+							ctx->bOutOfBound = (flInitVal > varMax.flVal || flInitVal < varMin.flVal);
+						}
 						var.flVal = (varMin.flVal < varMax.flVal) ? clamp(flInitVal, varMin.flVal, varMax.flVal) : flInitVal;
 					} break;
 					}
@@ -79,7 +89,7 @@ static SerialVariant DeserialVariant(char (&szMutStr)[NEO_XHAIR_SEQMAX], const i
 					const int iSkipLen = V_atoi(pszCurSegment);
 					if (iSkipLen > 1)
 					{
-						*piSkipIdx = iSkipLen - 1;
+						ctx->iSkipIdx = iSkipLen - 1;
 					}
 				}
 			}
@@ -111,9 +121,9 @@ static SerialVariant DeserialVariant(char (&szMutStr)[NEO_XHAIR_SEQMAX], const i
 	}
 	else
 	{
-		return DeserialVariant(szMutStr, ctx->iSeqSize, &ctx->idx, SERIALVARIANTTYPE_INT,
-				{ .iVal = (eCompMode == COMPMODE_EQUALS) ? iCompVal : iVal }, &ctx->iSkipIdx,
-				{ .iVal = iMin }, { .iVal = iMax }).iVal;
+		return DeserialVariant(szMutStr, SERIALVARIANTTYPE_INT,
+				{ .iVal = (eCompMode == COMPMODE_EQUALS) ? iCompVal : iVal },
+				{ .iVal = iMin }, { .iVal = iMax }, ctx).iVal;
 	}
 }
 
@@ -136,9 +146,9 @@ static SerialVariant DeserialVariant(char (&szMutStr)[NEO_XHAIR_SEQMAX], const i
 	}
 	else
 	{
-		return DeserialVariant(szMutStr, ctx->iSeqSize, &ctx->idx, SERIALVARIANTTYPE_BOOL,
-				{ .bVal = (eCompMode == COMPMODE_EQUALS) ? bCompVal : bVal }, &ctx->iSkipIdx,
-				{}, {}).bVal;
+		return DeserialVariant(szMutStr, SERIALVARIANTTYPE_BOOL,
+				{ .bVal = (eCompMode == COMPMODE_EQUALS) ? bCompVal : bVal },
+				{}, {}, ctx).bVal;
 	}
 }
 
@@ -162,9 +172,9 @@ static SerialVariant DeserialVariant(char (&szMutStr)[NEO_XHAIR_SEQMAX], const i
 	}
 	else
 	{
-		return DeserialVariant(szMutStr, ctx->iSeqSize, &ctx->idx, SERIALVARIANTTYPE_FLOAT,
-				{ .flVal = (eCompMode == COMPMODE_EQUALS) ? flCompVal : flVal }, &ctx->iSkipIdx,
-				{ .flVal = flMin }, { .flVal = flMax }).flVal;
+		return DeserialVariant(szMutStr, SERIALVARIANTTYPE_FLOAT,
+				{ .flVal = (eCompMode == COMPMODE_EQUALS) ? flCompVal : flVal },
+				{ .flVal = flMin }, { .flVal = flMax }, ctx).flVal;
 	}
 }
 

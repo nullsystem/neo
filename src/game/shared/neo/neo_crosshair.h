@@ -182,6 +182,10 @@ void PaintCrosshair(const CrosshairWepInfo *crh, const int inaccuracy, const int
 int HalfInaccuracyConeInScreenPixels(C_NEOBaseCombatWeapon *pWeapon, int halfScreenWidth);
 
 void InitializeClNeoCrosshair();
+
+class IConVar;
+void NeoConVarCrosshairChangeCallback(IConVar *cvar, const char *pOldVal, float flOldVal);
+
 #endif // CLIENT_DLL
 
 void ResetCrosshairToDefault(CrosshairInfo *xhairInfo,
@@ -189,6 +193,8 @@ void ResetCrosshairToDefault(CrosshairInfo *xhairInfo,
 void DefaultCrosshairSerial(char (&szSequence)[NEO_XHAIR_SEQMAX]);
 
 int UseCrosshairIndexFor(const CrosshairInfo *xhairInfo, const int iXHairWep, bool *pbHide = nullptr);
+
+bool ValidateCrosshairSerial(const char *pszSequence);
 
 // NEO NOTE (nullsystem): (*&)[NUM] enforces array size
 // paeHipfireOpts - Maps NeoUI RingBox int <-> NeoCrosshairWepFlags + NeoCrosshairHipfireCustomFlags

@@ -6,6 +6,7 @@ enum ESerialMode
 {
 	SERIALMODE_DESERIALIZE = 0,
 	SERIALMODE_SERIALIZE,
+	SERIALMODE_CHECK, // SERIALMODE_DESERIALIZE but checks for bounds
 };
 
 // Value comparison mode
@@ -24,6 +25,7 @@ struct SerialContext
 	int iSeqSize;
 	int idx;
 	int iSkipIdx;
+	bool bOutOfBound;
 };
 
 [[nodiscard]] int SerialInt(const int iVal, const int iCompVal,
