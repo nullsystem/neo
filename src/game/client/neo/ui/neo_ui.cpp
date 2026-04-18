@@ -330,9 +330,6 @@ void BeginContext(NeoUI::Context *pNextCtx, const NeoUI::Mode eMode, const wchar
 		}
 		c->eKeyHints = (c->eCode <= KEY_LAST) ? KEYHINTS_KEYBOARD : KEYHINTS_CONTROLLER;
 		break;
-	case MODE_MOUSERELEASED:
-		c->eMousePressedStart = MOUSESTART_NONE;
-		break;
 	case MODE_MOUSEPRESSED:
 	case MODE_MOUSEDOUBLEPRESSED:
 	case MODE_MOUSEWHEELED:
@@ -2217,7 +2214,7 @@ void Progress(const float flValue, const float flMin, const float flMax)
 
 void ProgressDrag(float *flValue, const float flMin, const float flMax)
 {
-	const auto wdgState = BeginWidget(WIDGETFLAG_MOUSE | WIDGETFLAG_MARKACTIVE);
+	auto wdgState = BeginWidget(WIDGETFLAG_MOUSE | WIDGETFLAG_MARKACTIVE);
 	if (wdgState.bInView)
 	{
 		switch (c->eMode)
@@ -2231,6 +2228,14 @@ void ProgressDrag(float *flValue, const float flMin, const float flMax)
 											c->rWidgetArea.x0 + (flPerc * c->irWidgetWide),
 											c->rWidgetArea.y1);
 		} break;
+		case MODE_MOUSERELEASED:
+		{
+			if (wdgState.bActive)
+			{
+				c->iActive == FOCUSOFF_NUM;
+				c->iActiveSection = -1;
+			}
+		} break;
 		case MODE_MOUSEPRESSED:
 		case MODE_MOUSEDOUBLEPRESSED:
 		{
@@ -2238,14 +2243,12 @@ void ProgressDrag(float *flValue, const float flMin, const float flMax)
 			{
 				c->iActive = c->iWidget;
 				c->iActiveSection = c->iSection;
-				c->eMousePressedStart = MOUSESTART_SLIDER;
 			}
 		} [[fallthrough]];
 		case MODE_MOUSEMOVED:
 		{
 			if (wdgState.bActive
-					&& vgui::input()->IsMouseDown(MOUSE_LEFT)
-					&& c->eMousePressedStart == MOUSESTART_SLIDER)
+					&& vgui::input()->IsMouseDown(MOUSE_LEFT))
 			{
 				const int iMouseRelXWidget = c->iMouseAbsX - c->rWidgetArea.x0;
 				const float flPerc = static_cast<float>(iMouseRelXWidget) / static_cast<float>(c->irWidgetWide);
@@ -2264,15 +2267,15 @@ void ProgressDrag(float *flValue, const float flMin, const float flMax)
 void Slider(const wchar_t *wszLeftLabel, float *flValue, const float flMin, const float flMax,
 				   const int iDp, const float flStep, const wchar_t *wszSpecialText)
 {
-	BeginMultiWidgetHighlighter(2);
+	BeginMultiWidgetHighlighter(3);
 	Label(wszLeftLabel);
-	const auto wdgState = BeginWidget(WIDGETFLAG_MOUSE | WIDGETFLAG_MARKACTIVE);
+	auto wdgState = BeginWidget(WIDGETFLAG_MOUSE | WIDGETFLAG_MARKACTIVE);
 
 	if (wdgState.bInView)
 	{
 		auto hdl = c->htSliders.Find(wszLeftLabel);
 		if (hdl == -1 || c->htSliders.Element(hdl).flCachedValue != *flValue ||
-				c->htSliders.Element(hdl).bActive != wdgState.bActive)
+				c->htSliders.Element(hdl).bActive != wdgState.bHot)
 		{
 			// Update string/cached value
 			wchar_t wszFormat[32];
@@ -2291,7 +2294,7 @@ void Slider(const wchar_t *wszLeftLabel, float *flValue, const float flMin, cons
 			const int iStrMinLen = V_swprintf_safe(wszTmpTest, wszFormat, flMin);
 			const int iStrMaxLen = V_swprintf_safe(wszTmpTest, wszFormat, flMax);
 			pSInfo->iMaxStrSize = Max(iStrMinLen, iStrMaxLen);
-			pSInfo->bActive = wdgState.bActive;
+			pSInfo->bActive = wdgState.bHot;
 		}
 		SliderInfo *pSInfo = &c->htSliders.Element(hdl);
 
@@ -2320,7 +2323,7 @@ void Slider(const wchar_t *wszLeftLabel, float *flValue, const float flMin, cons
 			vgui::surface()->DrawPrintText(WSZ_ARROW_RIGHT, 1);
 
 			// Center-text text dimensions
-			const bool bSpecial = (wszSpecialText && !wdgState.bActive && *flValue == 0.0f);
+			const bool bSpecial = (wszSpecialText && !wdgState.bHot && *flValue == 0.0f);
 			int iFontWide, iFontTall;
 			vgui::surface()->GetTextSize(pFontI->hdl, bSpecial ? wszSpecialText : pSInfo->wszText, iFontWide, iFontTall);
 			const int iFontStartX = ((c->irWidgetWide / 2) - (iFontWide / 2));
@@ -2355,7 +2358,7 @@ void Slider(const wchar_t *wszLeftLabel, float *flValue, const float flMin, cons
 			vgui::surface()->DrawPrintText(bSpecial ? wszSpecialText : pSInfo->wszText,
 										   bSpecial ? V_wcslen(wszSpecialText) : V_wcslen(pSInfo->wszText));
 
-			if (wdgState.bActive)
+			if (wdgState.bHot)
 			{
 				const bool bEditBlinkShow = (static_cast<int>(gpGlobals->curtime * 1.5f) % 2 == 0);
 				if (bEditBlinkShow)
@@ -2370,44 +2373,9 @@ void Slider(const wchar_t *wszLeftLabel, float *flValue, const float flMin, cons
 			}
 		}
 		break;
-		case MODE_MOUSEPRESSED:
-		case MODE_MOUSEDOUBLEPRESSED:
-		{
-			if (wdgState.bHot)
-			{
-				c->iActive = c->iWidget;
-				c->iActiveSection = c->iSection;
-				if (c->eCode == MOUSE_LEFT)
-				{
-					MousePos eMousePos = MOUSEPOS_CENTER;
-					if (IN_BETWEEN_EQ(c->rWidgetArea.x0, c->iMouseAbsX, c->rWidgetArea.x0 + c->layout.iRowTall))
-					{
-						eMousePos = MOUSEPOS_LEFT;
-					}
-					else if (IN_BETWEEN_EQ(c->rWidgetArea.x1 - c->layout.iRowTall, c->iMouseAbsX, c->rWidgetArea.x1))
-					{
-						eMousePos = MOUSEPOS_RIGHT;
-					}
-
-					if (eMousePos == MOUSEPOS_LEFT || eMousePos == MOUSEPOS_RIGHT)
-					{
-						*flValue += (eMousePos == MOUSEPOS_LEFT) ? -flStep : +flStep;
-						*flValue = ClampAndLimitDp(*flValue, flMin, flMax, iDp);
-						c->bValueEdited = true;
-					}
-					else // MOUSEPOS_CENTER
-					{
-						c->iActive = c->iWidget;
-						c->iActiveSection = c->iSection;
-						c->eMousePressedStart = MOUSESTART_SLIDER;
-					}
-				}
-			}
-		}
-		break;
 		case MODE_KEYPRESSED:
 		{
-			if (wdgState.bActive)
+			if (wdgState.bHot)
 			{
 				if (IsKeyLeftRight())
 				{
@@ -2451,9 +2419,55 @@ void Slider(const wchar_t *wszLeftLabel, float *flValue, const float flMin, cons
 			}
 		}
 		break;
+		case MODE_MOUSERELEASED:
+		{
+			if (wdgState.bActive)
+			{
+				c->iActive == FOCUSOFF_NUM;
+				c->iActiveSection = -1;
+			}
+		} break;
+		case MODE_MOUSEPRESSED:
+		case MODE_MOUSEDOUBLEPRESSED:
+		{
+			if (wdgState.bHot)
+			{
+				c->iActive = c->iWidget;
+				c->iActiveSection = c->iSection;
+				if (c->eCode == MOUSE_LEFT)
+				{
+					MousePos eMousePos = MOUSEPOS_CENTER;
+					if (IN_BETWEEN_EQ(c->rWidgetArea.x0, c->iMouseAbsX, c->rWidgetArea.x0 + c->layout.iRowTall))
+					{
+						eMousePos = MOUSEPOS_LEFT;
+					}
+					else if (IN_BETWEEN_EQ(c->rWidgetArea.x1 - c->layout.iRowTall, c->iMouseAbsX, c->rWidgetArea.x1))
+					{
+						eMousePos = MOUSEPOS_RIGHT;
+					}
+
+					if (eMousePos == MOUSEPOS_LEFT || eMousePos == MOUSEPOS_RIGHT)
+					{
+						*flValue += (eMousePos == MOUSEPOS_LEFT) ? -flStep : +flStep;
+						*flValue = ClampAndLimitDp(*flValue, flMin, flMax, iDp);
+						c->bValueEdited = true;
+					}
+					else // MOUSEPOS_CENTER
+					{
+						c->iActive = c->iWidget;
+						c->iActiveSection = c->iSection;
+						wdgState.bActive = true;
+					}
+				}
+			}
+		}
+		[[fallthrough]];
 		case MODE_MOUSEMOVED:
 		{
-			if (wdgState.bActive && vgui::input()->IsMouseDown(MOUSE_LEFT) && c->eMousePressedStart == MOUSESTART_SLIDER)
+			if (wdgState.bActive && vgui::input()->IsMouseDown(MOUSE_LEFT)
+					&& IN_BETWEEN_EQ(c->rWidgetArea.x0 + c->layout.iRowTall + 1,
+							c->iMouseAbsX,
+							c->rWidgetArea.x1 - c->layout.iRowTall - 1))
 			{
 				const int iMouseRelXWidget = c->iMouseAbsX - c->rWidgetArea.x0;
 				const float flPerc = static_cast<float>(iMouseRelXWidget - c->layout.iRowTall) / static_cast<float>(c->irWidgetWide - (2 * c->layout.iRowTall));
@@ -2465,7 +2479,7 @@ void Slider(const wchar_t *wszLeftLabel, float *flValue, const float flMin, cons
 		break;
 		case MODE_KEYTYPED:
 		{
-			if (wdgState.bActive)
+			if (wdgState.bHot)
 			{
 				const int iTextSize = V_wcslen(pSInfo->wszText);
 				const wchar_t uc = c->unichar;
@@ -2495,6 +2509,7 @@ void Slider(const wchar_t *wszLeftLabel, float *flValue, const float flMin, cons
 	}
 
 	EndWidget(wdgState);
+	TextEdit(wszTextBox, 32);
 	EndMultiWidgetHighlighter();
 }
 

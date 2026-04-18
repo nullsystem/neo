@@ -71,12 +71,6 @@ enum MousePos
 	MOUSEPOS_CENTER,
 	MOUSEPOS_RIGHT,
 };
-enum MouseStart
-{
-	MOUSESTART_NONE = 0,
-	MOUSESTART_SLIDER,
-};
-
 enum LayoutMode
 {
 	LAYOUT_VERTICAL = 0,
@@ -410,8 +404,6 @@ struct Context
 	int iPrePopupActive;
 	int iPrePopupActiveSection;
 
-	MouseStart eMousePressedStart;
-
 	const char *pSzCurCtxName;
 	CUtlHashtable<const wchar_t *, SliderInfo> htSliders;
 	CUtlHashtable<CUtlConstString, int> htTexMap;
@@ -578,6 +570,8 @@ struct TabsState
 /*1W*/ void Progress(const float flValue, const float flMin, const float flMax);
 /*1W*/ void ProgressDrag(float *flValue, const float flMin, const float flMax);
 // Sliders relies on wszLeftLabel to cache value string, so only two-widgets variants
+// NEO TODO (nullsystem): Replace cached value string system and externally manage slider's
+// textedit?
 /*2W*/ void Slider(const wchar_t *wszLeftLabel, float *flValue, const float flMin, const float flMax,
 				   const int iDp = 2, const float flStep = 1.0f, const wchar_t *wszSpecialText = nullptr);
 /*2W*/ void SliderInt(const wchar_t *wszLeftLabel, int *iValue, const int iMin, const int iMax, const int iStep = 1,
