@@ -1,3 +1,4 @@
+#pragma once
 //========= Copyright Valve Corporation, All rights reserved. ============//
 //
 // Purpose: 
