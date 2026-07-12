@@ -448,6 +448,7 @@ endif()
 if(NOT NEO_DEDICATED)
     add_subdirectory(game/client)
     add_subdirectory(materialsystem/stdshaders)
+    add_subdirectory(launcher_main)
 endif()
 
 add_subdirectory(game/server)

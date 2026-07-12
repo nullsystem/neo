@@ -25,6 +25,7 @@
 #include <string>
 #include <vector>
 
+#include "tier1/strtools.h"
 #include "tier0/basetypes.h"
 
 #ifdef WIN32
@@ -107,6 +108,7 @@ static void *s_SteamModule;
 
 #define CALL( fn ) __real_##fn
 
+#ifndef POSIX
 // Some stubs for pre-exec.
 extern "C"
 {
@@ -120,6 +122,7 @@ extern "C"
         return CALL(fopen64)( path, mode );
     }
 }
+#endif // ifndef POSIX
 #endif
 
 static void UnloadSteam()
@@ -153,6 +156,8 @@ static bool LoadSteam( const char *pRootDir )
 	// Assemble the full path to our "steam_api.dll"
 	_snprintf( szBuffer, sizeof( szBuffer ), STEAM_API_DLL_PATH, pRootDir );
 	szBuffer[sizeof( szBuffer ) - 1] = '\0';
+
+	printf("szBuffer: %s\n", szBuffer);
 
 	s_SteamModule = Launcher_LoadModule( szBuffer );
 	if ( !s_SteamModule )
@@ -570,7 +575,7 @@ static void WaitForDebuggerConnect( int argc, char *argv[], int time )
 
 static const char *GetExecutableModName( char *pszExePath )
 {
-	static char s_szFinalFilename[ MAX_PATH + 1 ] = "hl2";
+	static char s_szFinalFilename[ MAX_PATH + 1 ] = "neo";
 
 	char szExePath[ MAX_PATH + 1 ];
 	strncpy( szExePath, pszExePath, sizeof( szExePath ) );
@@ -616,8 +621,10 @@ int main( int argc, char *argv[] )
 	{
 		return 1;
 	}
+	printf("moduleName: %s\n", moduleName);
 
 	char* pRootDir = GetBaseDir( moduleName );
+	printf("pRootDir: %s\n", pRootDir);
 
 	const char *pBinaryGameDir = pRootDir;
 
@@ -627,8 +634,11 @@ int main( int argc, char *argv[] )
 		return 1;
 	}
 
+	printf("szGameInstallDir: %s\n", szGameInstallDir);
+
 	char szExecutable[8192];
-	snprintf(szExecutable, sizeof(szExecutable), "%s/hl2.sh", szGameInstallDir );
+	snprintf(szExecutable, sizeof(szExecutable), "%s/ntre_linux64", pRootDir); //szGameInstallDir );
+	setenv("SDK_EXEC_DIR", szGameInstallDir, 1);
 
 	std::vector<char *> new_argv;
 
@@ -659,6 +669,12 @@ int main( int argc, char *argv[] )
 	}
 
 	new_argv.push_back(NULL);
+
+	printf("exec: %s\n", szExecutable);
+	for (const auto &arg : new_argv)
+	{
+		printf("arg: %s\n", arg);
+	}
 
 	execvp( szExecutable, new_argv.data() );
 
