@@ -3,6 +3,7 @@
 #include <vgui_controls/EditablePanel.h>
 #include "GameUI/IGameUI.h"
 #include <steam/isteamhttp.h>
+#include <vgui_avatarimage.h>
 
 // GCC shipped on SteamRT3 giving false positive
 #ifdef ACTUALLY_COMPILER_GCC
@@ -22,6 +23,7 @@
 #include "neo_ui.h"
 #include "neo_root_serverbrowser.h"
 #include "neo_root_settings.h"
+#include "neo_avatar.h"
 
 class CAvatarImage;
 
@@ -73,6 +75,8 @@ enum RootState
 	STATE_SERVERBROWSER,
 	STATE_CREDITS,
 	STATE_OVERLAY,
+	STATE_LOBBYBROWSER,
+	STATE_LOBBYIN,
 
 	// Those that are not the main states goes under here
 	STATE__SUBSTATES,
@@ -106,6 +110,14 @@ enum MainMenuButtons
 	MMBTN_QUIT,
 
 	MMBTN__TOTAL,
+};
+
+enum ELobbyBrowser
+{
+	LOBBYBROWSER_NAME,
+	LOBBYBROWSER_MEMBERSCOUNT,
+
+	LOBBYBROWSER__TOTAL,
 };
 
 struct SprayInfo
@@ -165,6 +177,8 @@ public:
 	void MainLoopServerBrowser(const MainLoopParam param);
 	void MainLoopCredits(const MainLoopParam param);
 	void MainLoopOverlay(const MainLoopParam param);
+	void MainLoopLobbyBrowser(const MainLoopParam param);
+	void MainLoopLobbyIn(const MainLoopParam param);
 	void MainLoopMapList(const MainLoopParam param);
 	void MainLoopServerDetails(const MainLoopParam param);
 	void MainLoopSprayPicker(const MainLoopParam param);
@@ -248,10 +262,12 @@ public:
 	bool m_bColsWideServerBrowserInit = false;
 	bool m_bColsWideServerBlacklistInit = false;
 	bool m_bColsWideDetailedPlayerListInit = false;
+	bool m_bColsWideLobbyBrowserInit = false;
 
 	int m_iColsWideServerBrowser[GSIW__TOTAL] = {};
 	int m_iColsWideServerBlacklist[SBLIST_COL__TOTAL] = {};
 	int m_iColsWideDetailedPlayerList[GSPS__TOTAL] = {};
+	int m_iColsWideLobbyBrowser[LOBBYBROWSER__TOTAL] = {};
 
 	int m_iUpDownInitialServer = -1;
 	int m_iUpDownDirection = 0;
@@ -294,6 +310,52 @@ public:
 	};
 	CUtlVector<TeamInfo> m_teamInfos;
 	int m_iSetTeamPreset = 0;
+
+	bool m_bInitLobbies = false;
+
+	CCallResult<CNeoRoot, LobbyMatchList_t> m_CallResultLobbyMatchList;
+	void OnLobbyMatchList(LobbyMatchList_t *pLobbyMatchList, bool bIOFailure);
+
+	CCallResult<CNeoRoot, LobbyCreated_t> m_CallResultLobbyCreated;
+	void OnLobbyCreated(LobbyCreated_t *pLobbyCreated, bool bIOFailure);
+
+	CCallResult<CNeoRoot, LobbyEnter_t> m_CallResultLobbyEnter;
+	void OnLobbyEnter(LobbyEnter_t *pLobbyEnter, bool bIOFailure);
+
+	CCallback<CNeoRoot, LobbyChatMsg_t> m_CallBackLobbyChatMsg;
+	void OnLobbyChatMsg(LobbyChatMsg_t *pLobbyChatMsg);
+
+	struct LobbyInfo
+	{
+		CSteamID steamIDLobby;
+		wchar_t wszName[33];
+		int iMembersCurrent;
+		int iMembersMax;
+	};
+	CUtlVector<LobbyInfo> m_lobbiesList;
+
+	CSteamID m_steamIDCurrentLobby;
+	wchar_t m_wszCurLobbyName[33];
+
+	struct LobbyMemberInfo
+	{
+		CSteamID steamID;
+		NeoAvatar avatar;
+		wchar_t wszName[MAX_PLAYER_NAME_LENGTH];
+	};
+	LobbyMemberInfo m_lobbyMembers[MAX_PLAYERS_ARRAY_SAFE] = {};
+	int m_iLobbyMembersSize = 0;
+	int m_iLobbyMembersMax = 0;
+	float m_flNextLobbyMembersUpdateTime = 0.0f;
+	CSteamID m_steamIDLobbyOwner;
+
+	static const constexpr int MAX_LOBBY_MSG_HISTORY = 32;
+	static const constexpr int MAX_LOBBY_MSG_LEN = 64 + 1;
+	wchar_t m_wszRingLobbyMsgContent[MAX_LOBBY_MSG_HISTORY][MAX_LOBBY_MSG_LEN] = {};
+	wchar_t m_wszRingLobbyMsgUser[MAX_LOBBY_MSG_HISTORY][MAX_PLAYER_NAME_LENGTH] = {};
+	int m_iRingLobbyMsgIdx = 0;
+	int m_iRingLobbyMsgSize = 0;
+	wchar_t m_wszLobbyChatMsg[MAX_LOBBY_MSG_LEN] = {};
 };
 
 extern CNeoRoot *g_pNeoRoot;

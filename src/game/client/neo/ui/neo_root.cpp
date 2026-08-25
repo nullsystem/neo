@@ -359,6 +359,7 @@ static const char *BINDNAME_TO_ROOTBUTTONACTION_MAP[CNeoRoot::ROOTBUTTONACTION__
 CNeoRoot::CNeoRoot(VPANEL parent)
 	: EditablePanel(nullptr, "NeoRootPanel")
 	, m_panelCaptureInput(new CNeoRootInput(this))
+	, m_CallBackLobbyChatMsg(this, &CNeoRoot::OnLobbyChatMsg)
 {
 	SetParent(parent);
 	g_pNeoRoot = this;
@@ -769,6 +770,7 @@ void CNeoRoot::OnMainLoop(const NeoUI::Mode eMode)
 	}
 
 	const RootState ePrevState = m_state;
+	bool bDrawingBottomBars = false;
 
 	// Loading screen just overlays over the root, so don't render anything else if so
 	if (!m_bOnLoadingScreen)
@@ -780,6 +782,8 @@ void CNeoRoot::OnMainLoop(const NeoUI::Mode eMode)
 			&CNeoRoot::MainLoopServerBrowser,	// STATE_SERVERBROWSER
 			&CNeoRoot::MainLoopCredits,			// STATE_CREDITS
 			&CNeoRoot::MainLoopOverlay,			// STATE_OVERLAY
+			&CNeoRoot::MainLoopLobbyBrowser,	// STATE_LOBBYBROWSER
+			&CNeoRoot::MainLoopLobbyIn,			// STATE_LOBBYIN
 
 			&CNeoRoot::MainLoopMapList,			// STATE_MAPLIST
 			&CNeoRoot::MainLoopServerDetails,	// STATE_SERVERDETAILS
@@ -797,16 +801,38 @@ void CNeoRoot::OnMainLoop(const NeoUI::Mode eMode)
 		// Each MainLoop... will have its own BeginContext
 		(this->*P_FN_MAIN_LOOP[m_state])(MainLoopParam{.eMode = eMode, .wide = wide, .tall = tall});
 
+		g_uiCtx.dPanel.wide = wide;
+		g_uiCtx.dPanel.tall = g_uiCtx.layout.iDefRowTall;
+		g_uiCtx.dPanel.x = 0;
+		g_uiCtx.dPanel.y = tall - g_uiCtx.dPanel.tall - 1;
+		g_uiCtx.colors.sectionBg = COLOR_DARK_RED;
+		g_uiCtx.colors.normalFg = COLOR_WHITE;
+		g_uiCtx.eButtonTextStyle = NeoUI::TEXTSTYLE_LEFT;
+		NeoUI::SwapFont(NeoUI::FONT_NTNORMAL);
+
+		if (m_steamIDCurrentLobby.IsValid())
+		{
+			bDrawingBottomBars = true;
+
+			NeoUI::BeginSection(NeoUI::SECTIONFLAG_PLAYBUTTONSOUNDS);
+
+			static constexpr const int ROWLAYOUT_LOBBYNOTIFY[] = { 15, 65, -1 };
+			NeoUI::SetPerRowLayout(3, ROWLAYOUT_LOBBYNOTIFY, g_uiCtx.layout.iDefRowTall);
+
+			NeoUI::Label(L"In lobby:");
+			NeoUI::Label(m_wszCurLobbyName);
+
+			wchar wszText[33];
+			V_swprintf_safe(wszText, L"%d/%d", m_iLobbyMembersSize, m_iLobbyMembersMax);
+			NeoUI::Label(wszText);
+
+			NeoUI::EndSection();
+		}
+
 		if (m_serverPingAutoJoin.m_serverInfo.m_NetAdr.GetIP() != 0)
 		{
-			g_uiCtx.dPanel.wide = wide;
-			g_uiCtx.dPanel.tall = g_uiCtx.layout.iDefRowTall;
-			g_uiCtx.dPanel.x = 0;
-			g_uiCtx.dPanel.y = tall - g_uiCtx.dPanel.tall - 1;
-			g_uiCtx.colors.sectionBg = COLOR_DARK_RED;
-			g_uiCtx.colors.normalFg = COLOR_WHITE;
-			g_uiCtx.eButtonTextStyle = NeoUI::TEXTSTYLE_LEFT;
-			NeoUI::SwapFont(NeoUI::FONT_NTNORMAL);
+			bDrawingBottomBars = true;
+
 			NeoUI::BeginSection(NeoUI::SECTIONFLAG_PLAYBUTTONSOUNDS);
 			// NEO TODO (nullsystem): Offsets are done via index so always clear it if it's
 			// gets to here.
@@ -912,7 +938,7 @@ void CNeoRoot::OnMainLoop(const NeoUI::Mode eMode)
 		surface()->DrawSetTextFont(g_uiCtx.fonts[NeoUI::FONT_NTNORMAL].hdl);
 		surface()->GetTextSize(g_uiCtx.fonts[NeoUI::FONT_NTNORMAL].hdl, BUILD_DISPLAY, textWidth, textHeight);
 
-		if (m_serverPingAutoJoin.m_serverInfo.m_NetAdr.GetIP() != 0)
+		if (bDrawingBottomBars)
 		{
 			// top right corner
 			surface()->DrawSetTextPos(wide - textWidth - g_uiCtx.iMarginX, g_uiCtx.iMarginY);
@@ -968,6 +994,10 @@ void CNeoRoot::MainLoopRoot(const MainLoopParam param)
 		if (NeoUI::Button(m_wszCachedTexts[MMBTN_FINDSERVER]).bPressed)
 		{
 			m_state = STATE_SERVERBROWSER;
+		}
+		if (SteamMatchmaking() && NeoUI::Button(L"LOBBY").bPressed)
+		{
+			m_state = STATE_LOBBYBROWSER;
 		}
 		if (NeoUI::Button(m_wszCachedTexts[MMBTN_CREATESERVER]).bPressed)
 		{
@@ -2489,6 +2519,372 @@ void CNeoRoot::MainLoopOverlay(const MainLoopParam param)
 			NeoUI::EndPopup();
 		}
 	}
+}
+
+void CNeoRoot::MainLoopLobbyBrowser(const MainLoopParam param)
+{
+	if (!m_bInitLobbies)
+	{
+		SteamMatchmaking()->AddRequestLobbyListStringFilter("mod", "neo", k_ELobbyComparisonEqual);
+		SteamAPICall_t hSteamAPICall = SteamMatchmaking()->RequestLobbyList();
+		m_CallResultLobbyMatchList.Set(hSteamAPICall, this, &CNeoRoot::OnLobbyMatchList);
+
+		m_bInitLobbies = true;
+	}
+
+	const int iTallTotal = g_uiCtx.layout.iRowTall * (g_iRowsInScreen + 2);
+	g_uiCtx.dPanel.wide = g_iRootSubPanelWide;
+	g_uiCtx.dPanel.x = ((param.wide - g_iRootSubPanelWide) / 2);
+	g_uiCtx.dPanel.y = ((param.tall - iTallTotal) / 2);
+	g_uiCtx.dPanel.tall = g_uiCtx.layout.iRowTall * (g_iRowsInScreen + 1);
+	g_uiCtx.colors.sectionBg = COLOR_BLACK_TRANSPARENT;
+	NeoUI::BeginContext(&g_uiCtx, param.eMode, L"LOBBIES", "CtxLobbyBrowser");
+	{
+		NeoUI::SwapFont(NeoUI::FONT_NTNORMAL);
+		NeoUI::BeginSection(NeoUI::SECTIONFLAG_DEFAULTFOCUS);
+		{
+			g_uiCtx.eButtonTextStyle = NeoUI::TEXTSTYLE_LEFT;
+			NeoUI::SetPerRowLayout(1, nullptr);
+
+			if (false == m_bColsWideLobbyBrowserInit)
+			{
+				m_iColsWideLobbyBrowser[LOBBYBROWSER_NAME] = (g_uiCtx.dPanel.wide * 0.8f);
+				m_iColsWideLobbyBrowser[LOBBYBROWSER_MEMBERSCOUNT] =
+						(g_uiCtx.dPanel.wide - m_iColsWideLobbyBrowser[LOBBYBROWSER_NAME]);
+				m_bColsWideLobbyBrowserInit = true;
+			}
+
+			NeoUI::BeginTable(m_iColsWideLobbyBrowser, LOBBYBROWSER__TOTAL);
+			{
+				for (const LobbyInfo &lobby : m_lobbiesList)
+				{
+					const auto btn = NeoUI::NextTableRow(NeoUI::NEXTTABLEROWFLAG_SELECTABLE);
+					{
+						wchar wszText[MAX_PLAYER_NAME_LENGTH + 8];
+
+						V_swprintf_safe(wszText, L"%ls%ls", lobby.wszName,
+								(m_steamIDCurrentLobby == lobby.steamIDLobby)
+									? L" (in)" : L"");
+						NeoUI::Label(wszText);
+
+						V_swprintf_safe(wszText, L"%d/%d", lobby.iMembersCurrent, lobby.iMembersMax);
+						NeoUI::Label(wszText);
+					}
+					if (btn.bPressed || btn.bMouseRightPressed)
+					{
+						if (m_steamIDCurrentLobby == lobby.steamIDLobby)
+						{
+							m_state = STATE_LOBBYIN;
+						}
+						else
+						{
+							if (m_steamIDCurrentLobby.IsValid())
+							{
+								SteamMatchmaking()->LeaveLobby(m_steamIDCurrentLobby);
+								m_steamIDCurrentLobby.Clear();
+							}
+
+							V_wcscpy_safe(m_wszCurLobbyName, lobby.wszName);
+							SteamAPICall_t hSteamAPICall = SteamMatchmaking()->JoinLobby(lobby.steamIDLobby);
+							m_CallResultLobbyEnter.Set(hSteamAPICall, this, &CNeoRoot::OnLobbyEnter);
+						}
+						break;
+					}
+				}
+			}
+			NeoUI::EndTable();
+		}
+		NeoUI::EndSection();
+		g_uiCtx.dPanel.y += g_uiCtx.dPanel.tall;
+		g_uiCtx.dPanel.tall = g_uiCtx.layout.iRowTall;
+		NeoUI::BeginSection(NeoUI::SECTIONFLAG_EXCLUDECONTROLLER);
+		{
+			g_uiCtx.eButtonTextStyle = NeoUI::TEXTSTYLE_CENTER;
+			NeoUI::SetPerRowLayout(5, nullptr);
+			{
+				if (NeoUI::Button(L"Back (ESC)").bPressed || NeoUI::BindKeyBack())
+				{
+					m_state = STATE_ROOT;
+				}
+				if (NeoUI::Button(L"Refresh").bPressed)
+				{
+					m_bInitLobbies = false;
+				}
+				if (m_steamIDCurrentLobby.IsValid())
+				{
+					NeoUI::Pad();
+					NeoUI::Pad();
+					NeoUI::Pad();
+				}
+				else
+				{
+					// Note: SliderInt takes up 2 widgets
+					static int iMaxSize = 12;
+					NeoUI::SliderInt(L"Max size:", &iMaxSize, 2, MAX_PLAYERS);
+					if (NeoUI::Button(L"Create").bPressed)
+					{
+						SteamAPICall_t hSteamAPICall = SteamMatchmaking()->CreateLobby(k_ELobbyTypePublic, iMaxSize);
+						m_CallResultLobbyCreated.Set(hSteamAPICall, this, &CNeoRoot::OnLobbyCreated);
+					}
+				}
+			}
+		}
+		NeoUI::EndSection();
+	}
+}
+
+void CNeoRoot::MainLoopLobbyIn(const MainLoopParam param)
+{
+	const int iTallTotal = g_uiCtx.layout.iRowTall * (g_iRowsInScreen + 2);
+	const int iTallMemChat = g_uiCtx.layout.iRowTall * g_iRowsInScreen;
+	const int iTallMem = g_uiCtx.layout.iRowTall * (g_iRowsInScreen * 0.4f);
+	const int iTallChat = iTallMemChat - iTallMem;
+	g_uiCtx.dPanel.wide = g_iRootSubPanelWide;
+	g_uiCtx.dPanel.x = ((param.wide - g_iRootSubPanelWide) / 2);
+	g_uiCtx.dPanel.y = ((param.tall - iTallTotal) / 2);
+	g_uiCtx.dPanel.tall = iTallMem;
+	g_uiCtx.colors.sectionBg = COLOR_BLACK_TRANSPARENT;
+	NeoUI::BeginContext(&g_uiCtx, param.eMode, m_wszCurLobbyName, "CtxLobbyIn");
+	{
+		NeoUI::SwapFont(NeoUI::FONT_NTNORMAL);
+		NeoUI::BeginSection(NeoUI::SECTIONFLAG_DEFAULTFOCUS);
+		{
+			if (m_flNextLobbyMembersUpdateTime <= gpGlobals->realtime)
+			{
+				m_steamIDLobbyOwner = SteamMatchmaking()->GetLobbyOwner(m_steamIDCurrentLobby);
+
+				const int iNumLobbyMembers = Min(
+						SteamMatchmaking()->GetNumLobbyMembers(m_steamIDCurrentLobby),
+						MAX_PLAYERS);
+				m_iLobbyMembersMax = SteamMatchmaking()->GetLobbyMemberLimit(m_steamIDCurrentLobby);
+				m_iLobbyMembersSize = 0;
+				for (int i = 0; i < iNumLobbyMembers; ++i)
+				{
+					const CSteamID steamIDMember = SteamMatchmaking()->GetLobbyMemberByIndex(
+							m_steamIDCurrentLobby, i);
+					if (steamIDMember.IsValid())
+					{
+						LobbyMemberInfo *pLobbyMember = &m_lobbyMembers[m_iLobbyMembersSize++];
+						pLobbyMember->steamID = steamIDMember;
+						pLobbyMember->avatar.SetSteamID(steamIDMember);
+						pLobbyMember->avatar.Fetch(64);
+						const char *pszName = SteamFriends()->GetFriendPersonaName(steamIDMember);
+						Q_UTF8ToUnicode(pszName,
+								pLobbyMember->wszName, sizeof(pLobbyMember->wszName));
+					}
+				}
+
+				m_flNextLobbyMembersUpdateTime = gpGlobals->realtime + 1.0f;
+			}
+
+			g_uiCtx.eButtonTextStyle = NeoUI::TEXTSTYLE_LEFT;
+			NeoUI::SetPerRowLayout(3, nullptr);
+			for (int i = 0; i < m_iLobbyMembersSize; ++i)
+			{
+				const LobbyMemberInfo *pLobbyMember = &m_lobbyMembers[i];
+				const bool bOwner = (pLobbyMember->steamID == m_steamIDLobbyOwner);
+
+				wchar_t wszLobbyLabel[64] = {};
+				V_swprintf_safe(wszLobbyLabel, L"%ls%ls",
+						pLobbyMember->wszName,
+						bOwner ? L" (Owner)" : L"");
+				NeoUI::Label(wszLobbyLabel);
+				pLobbyMember->avatar.Paint(g_uiCtx.rWidgetArea.x1 - g_uiCtx.irWidgetTall,
+						g_uiCtx.rWidgetArea.y0,
+						g_uiCtx.irWidgetTall);
+			}
+		}
+		NeoUI::EndSection();
+		g_uiCtx.dPanel.y += g_uiCtx.dPanel.tall;
+		g_uiCtx.dPanel.tall = g_uiCtx.layout.iRowTall;
+		NeoUI::BeginSection();
+		{
+			NeoUI::Divider(L"CHAT");
+		}
+		NeoUI::EndSection();
+		g_uiCtx.dPanel.y += g_uiCtx.dPanel.tall;
+		g_uiCtx.dPanel.tall = iTallChat - g_uiCtx.layout.iRowTall;
+		NeoUI::BeginSection();
+		{
+			// Loops from earliest to latest chat message in history
+			static const constexpr int ROWLAYOUT_LOBBY_CHAT_MSG_HISTORY[] = { 20, -1 };
+			NeoUI::SetPerRowLayout(2, ROWLAYOUT_LOBBY_CHAT_MSG_HISTORY);
+			int iChatIdx = m_iRingLobbyMsgIdx - m_iRingLobbyMsgSize + 1;
+			if (iChatIdx < 0)
+			{
+				iChatIdx += MAX_LOBBY_MSG_HISTORY;
+			}
+			for (int i = 0; i < m_iRingLobbyMsgSize; ++i)
+			{
+				NeoUI::Label(m_wszRingLobbyMsgUser[iChatIdx]);
+				NeoUI::Label(m_wszRingLobbyMsgContent[iChatIdx]);
+				iChatIdx = LoopAroundInArray(iChatIdx + 1, MAX_LOBBY_MSG_HISTORY);
+			}
+		}
+		NeoUI::EndSection();
+		g_uiCtx.dPanel.y += g_uiCtx.dPanel.tall;
+		g_uiCtx.dPanel.tall = g_uiCtx.layout.iRowTall;
+		NeoUI::BeginSection(NeoUI::SECTIONFLAG_DEFAULTFOCUS);
+		{
+			g_uiCtx.eButtonTextStyle = NeoUI::TEXTSTYLE_LEFT;
+			static const constexpr int ROWLAYOUT_LOBBY_CHAT_MSG[] = { 90, -1 };
+			NeoUI::SetPerRowLayout(2, ROWLAYOUT_LOBBY_CHAT_MSG);
+			NeoUI::TextEdit(m_wszLobbyChatMsg, MAX_LOBBY_MSG_LEN - 1);
+			if ((NeoUI::Button(L"Send").bPressed || NeoUI::Bind(KEY_ENTER)) && m_wszLobbyChatMsg[0])
+			{
+				char szMsg[MAX_LOBBY_MSG_LEN] = {};
+				Q_UnicodeToUTF8(m_wszLobbyChatMsg, szMsg, sizeof(szMsg));
+				SteamMatchmaking()->SendLobbyChatMsg(m_steamIDCurrentLobby,
+						szMsg, V_strlen(szMsg) + 1);
+				V_memset(m_wszLobbyChatMsg, 0, sizeof(m_wszLobbyChatMsg));
+			}
+		}
+		NeoUI::EndSection();
+		g_uiCtx.dPanel.y += g_uiCtx.dPanel.tall;
+		g_uiCtx.dPanel.tall = g_uiCtx.layout.iRowTall;
+		NeoUI::BeginSection(NeoUI::SECTIONFLAG_EXCLUDECONTROLLER);
+		{
+			g_uiCtx.eButtonTextStyle = NeoUI::TEXTSTYLE_CENTER;
+			NeoUI::SetPerRowLayout(5, nullptr);
+			{
+				if (NeoUI::Button(L"Back (ESC)").bPressed || NeoUI::BindKeyBack())
+				{
+					m_state = STATE_LOBBYBROWSER;
+				}
+				if (NeoUI::Button(L"Leave").bPressed)
+				{
+					SteamMatchmaking()->LeaveLobby(m_steamIDCurrentLobby);
+					m_steamIDCurrentLobby.Clear();
+
+					m_state = STATE_LOBBYBROWSER;
+				}
+				wchar_t wszText[65] = {};
+				NeoUI::Pad();
+				NeoUI::Pad();
+				V_swprintf_safe(wszText, L"Players: %d/%d", m_iLobbyMembersSize, m_iLobbyMembersMax);
+				NeoUI::Label(wszText);
+			}
+		}
+		NeoUI::EndSection();
+	}
+}
+
+void CNeoRoot::OnLobbyMatchList(LobbyMatchList_t *pLobbyMatchList, bool bIOFailure)
+{
+	if (!pLobbyMatchList || bIOFailure)
+	{
+		// TODO: Notify why
+		return;
+	}
+
+	m_lobbiesList.Purge();
+	for (int i = 0; i < pLobbyMatchList->m_nLobbiesMatching; ++i)
+	{
+		const CSteamID steamIDLobby = SteamMatchmaking()->GetLobbyByIndex(i);
+		if (steamIDLobby.IsValid())
+		{
+			LobbyInfo lobbyInfo = {};
+			lobbyInfo.steamIDLobby = steamIDLobby;
+			lobbyInfo.iMembersCurrent = SteamMatchmaking()->GetNumLobbyMembers(steamIDLobby);
+			lobbyInfo.iMembersMax = SteamMatchmaking()->GetLobbyMemberLimit(steamIDLobby);
+
+			const char *pszName = SteamMatchmaking()->GetLobbyData(steamIDLobby, "name");
+			if (pszName && pszName[0])
+			{
+				Q_UTF8ToUnicode(pszName, lobbyInfo.wszName, sizeof(lobbyInfo.wszName));
+			}
+			else
+			{
+				V_wcscpy_safe(lobbyInfo.wszName, L"NT;RE Lobby");
+			}
+
+			m_lobbiesList.AddToTail(lobbyInfo);
+		}
+	}
+}
+
+void CNeoRoot::OnLobbyCreated(LobbyCreated_t *pLobbyCreated, bool bIOFailure)
+{
+	if (!pLobbyCreated || k_EResultOK != pLobbyCreated->m_eResult
+			|| 0 == pLobbyCreated->m_ulSteamIDLobby || bIOFailure)
+	{
+		// TODO: Notify why
+		return;
+	}
+
+	m_steamIDCurrentLobby.Clear();
+	m_steamIDCurrentLobby.SetFromUint64(pLobbyCreated->m_ulSteamIDLobby);
+	V_memset(m_wszRingLobbyMsgContent, 0, sizeof(m_wszRingLobbyMsgContent));
+	V_memset(m_wszRingLobbyMsgUser, 0, sizeof(m_wszRingLobbyMsgUser));
+	V_memset(m_wszLobbyChatMsg, 0, sizeof(m_wszLobbyChatMsg));
+	m_iRingLobbyMsgIdx = 0;
+	m_iRingLobbyMsgSize = 0;
+
+	const char *pszPersonaName = SteamFriends()->GetPersonaName();
+	if (!pszPersonaName || '\0' == pszPersonaName[0])
+	{
+		pszPersonaName = "NT;RE Lobby";
+	}
+
+	SteamMatchmaking()->SetLobbyData(m_steamIDCurrentLobby, "mod", "neo");
+	SteamMatchmaking()->SetLobbyData(m_steamIDCurrentLobby, "name", pszPersonaName);
+	Q_UTF8ToUnicode(pszPersonaName, m_wszCurLobbyName, sizeof(m_wszCurLobbyName));
+
+	m_state = STATE_LOBBYIN;
+}
+
+void CNeoRoot::OnLobbyEnter(LobbyEnter_t *pLobbyEnter, bool bIOFailure)
+{
+	if (!pLobbyEnter || 0 == pLobbyEnter->m_ulSteamIDLobby || bIOFailure)
+	{
+		// TODO: Notify why
+		return;
+	}
+
+	m_steamIDCurrentLobby.Clear();
+	m_steamIDCurrentLobby.SetFromUint64(pLobbyEnter->m_ulSteamIDLobby);
+	// TODO: m_rgfChatPermissions, m_bLocked, m_EChatRoomEnterResponse
+	V_memset(m_wszRingLobbyMsgContent, 0, sizeof(m_wszRingLobbyMsgContent));
+	V_memset(m_wszRingLobbyMsgUser, 0, sizeof(m_wszRingLobbyMsgUser));
+	V_memset(m_wszLobbyChatMsg, 0, sizeof(m_wszLobbyChatMsg));
+	m_iRingLobbyMsgIdx = 0;
+	m_iRingLobbyMsgSize = 0;
+
+	m_state = STATE_LOBBYIN;
+}
+
+void CNeoRoot::OnLobbyChatMsg(LobbyChatMsg_t *pLobbyChatMsg)
+{
+	if (!pLobbyChatMsg
+			|| !m_steamIDCurrentLobby.IsValid()
+			|| m_steamIDCurrentLobby.ConvertToUint64() != pLobbyChatMsg->m_ulSteamIDLobby)
+	{
+		return;
+	}
+
+	CSteamID steamIDUser;
+	EChatEntryType eChatEntryType = {};
+	char szMsg[MAX_LOBBY_MSG_LEN] = {};
+	SteamMatchmaking()->GetLobbyChatEntry(m_steamIDCurrentLobby, pLobbyChatMsg->m_iChatID,
+			&steamIDUser, szMsg, MAX_LOBBY_MSG_LEN, &eChatEntryType);
+
+	if (steamIDUser.ConvertToUint64() != pLobbyChatMsg->m_ulSteamIDUser
+			|| eChatEntryType != pLobbyChatMsg->m_eChatEntryType)
+	{
+		// TODO: Console msg why
+		return;
+	}
+
+	m_iRingLobbyMsgIdx = LoopAroundInArray(m_iRingLobbyMsgIdx + 1, MAX_LOBBY_MSG_HISTORY);
+	m_iRingLobbyMsgSize = Min(m_iRingLobbyMsgSize + 1, MAX_LOBBY_MSG_HISTORY);
+	Q_UTF8ToUnicode(szMsg,
+			m_wszRingLobbyMsgContent[m_iRingLobbyMsgIdx],
+			sizeof(m_wszRingLobbyMsgContent[m_iRingLobbyMsgIdx]));
+
+	const char *pszName = SteamFriends()->GetFriendPersonaName(steamIDUser);
+	Q_UTF8ToUnicode(pszName,
+			m_wszRingLobbyMsgUser[m_iRingLobbyMsgIdx],
+			sizeof(m_wszRingLobbyMsgUser[m_iRingLobbyMsgIdx]));
 }
 
 void CNeoRoot::MainLoopMapList(const MainLoopParam param)
