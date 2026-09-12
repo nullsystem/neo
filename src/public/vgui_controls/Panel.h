@@ -29,6 +29,11 @@
 #include "tier1/utlsymbol.h"
 #include "vgui_controls/BuildGroup.h"
 
+#ifdef NEO
+#include <vgui/ISurface.h>
+#include <KeyValues.h>
+#endif
+
 // undefine windows function macros that overlap 
 #ifdef PostMessage
 #undef PostMessage
@@ -1046,5 +1051,82 @@ int ComputePos( Panel* pPanel, const char *pszInput, int &nPos, const int& nSize
 
 } // namespace vgui
 
+#ifdef NEO
+extern vgui::IPanelAnimationPropertyConverter *FindConverter( char const *typeName );
+
+class CProportionalIntWithScreenspacePropertyX : public vgui::IPanelAnimationPropertyConverter
+{
+public:
+	int	ExtractValue( vgui::Panel *pPanel, const char *pszKey )
+	{
+		int nPos = 0;
+		vgui::ComputePos( pPanel, pszKey, nPos, GetPanelDimension( pPanel ), GetScreenSize( pPanel ), true, vgui::OP_ADD );
+		return nPos;
+	}
+
+	virtual int GetScreenSize( vgui::Panel *pPanel ) const
+	{
+		int nParentWide, nParentTall;
+		if (pPanel->IsProportional() && pPanel->GetParent())
+		{
+			nParentWide = pPanel->GetParent()->GetWide();
+			nParentTall = pPanel->GetParent()->GetTall();
+		}
+		else
+		{
+			vgui::surface()->GetScreenSize(nParentWide, nParentTall);
+		}
+
+		return nParentWide;
+	}
+
+	virtual int GetPanelDimension( vgui::Panel *pPanel ) const
+	{
+		return pPanel->GetWide();
+	}
+
+	virtual void GetData( vgui::Panel *panel, KeyValues *kv, PanelAnimationMapEntry *entry )
+	{
+		// Won't work with this, don't use it.
+		Assert(0);
+	}
+
+	virtual void SetData( vgui::Panel *panel, KeyValues *kv, PanelAnimationMapEntry *entry )
+	{
+		void *data = ( void * )( (*entry->m_pfnLookup)( panel ) );
+		*(int *)data = ExtractValue( panel, kv->GetString( entry->name() ) );
+	}
+	virtual void InitFromDefault( vgui::Panel *panel, PanelAnimationMapEntry *entry )
+	{
+		void *data = ( void * )( (*entry->m_pfnLookup)( panel ) );
+		*(int *)data = ExtractValue( panel, entry->defaultvalue() );
+	}
+};
+
+class CProportionalIntWithScreenspacePropertyY : public CProportionalIntWithScreenspacePropertyX
+{
+public:
+	virtual int GetScreenSize( vgui::Panel *pPanel ) const OVERRIDE
+	{
+		int nParentWide, nParentTall;
+		if (pPanel->IsProportional() && pPanel->GetParent())
+		{
+			nParentWide = pPanel->GetParent()->GetWide();
+			nParentTall = pPanel->GetParent()->GetTall();
+		}
+		else
+		{
+			vgui::surface()->GetScreenSize(nParentWide, nParentTall);
+		}
+
+		return nParentTall;
+	}
+
+	virtual int GetPanelDimension(vgui::Panel *pPanel) const OVERRIDE
+	{
+		return pPanel->GetTall();
+	}
+};
+#endif // NEO
 
 #endif // PANEL_H

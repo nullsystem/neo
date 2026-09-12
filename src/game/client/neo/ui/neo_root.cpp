@@ -29,6 +29,8 @@
 #include "steamnetworkingtypes.h"
 #include "neo_mp3player.h"
 #include "neo_hud_spectator_overlay.h"
+#include "vgui_controls/PanelAnimationVar.h"
+#include "vgui_controls/Panel.h"
 
 #include <vgui/IInput.h>
 #include <vgui_controls/Controls.h>
@@ -366,6 +368,7 @@ CNeoRoot::CNeoRoot(VPANEL parent)
 	SetVisible(true);
 	SetProportional(false);
 	SetupNTRETheme(&g_uiCtx);
+	m_hudEditAmmo.SetProportional(true);
 	
 	vgui::HScheme neoscheme = vgui::scheme()->LoadSchemeFromFileEx(
 		enginevgui->GetPanel(PANEL_CLIENTDLL), "resource/ClientScheme.res", "ClientScheme");
@@ -780,6 +783,7 @@ void CNeoRoot::OnMainLoop(const NeoUI::Mode eMode)
 			&CNeoRoot::MainLoopServerBrowser,	// STATE_SERVERBROWSER
 			&CNeoRoot::MainLoopCredits,			// STATE_CREDITS
 			&CNeoRoot::MainLoopOverlay,			// STATE_OVERLAY
+			&CNeoRoot::MainLoopHUDEdit,			// STATE_HUDEDIT
 
 			&CNeoRoot::MainLoopMapList,			// STATE_MAPLIST
 			&CNeoRoot::MainLoopServerDetails,	// STATE_SERVERDETAILS
@@ -2489,6 +2493,273 @@ void CNeoRoot::MainLoopOverlay(const MainLoopParam param)
 			NeoUI::EndPopup();
 		}
 	}
+}
+
+void CNeoRoot::MainLoopHUDEdit(const MainLoopParam param)
+{
+	if (!m_bInitHudEdit)
+	{
+		vgui::HScheme neoscheme = vgui::scheme()->LoadSchemeFromFileEx(
+			enginevgui->GetPanel(PANEL_CLIENTDLL), "resource/ClientScheme.res", "ClientScheme");
+		vgui::IScheme *pScheme = vgui::scheme()->GetIScheme(neoscheme);
+		m_hudEditAmmo.ApplySchemeSettings(pScheme);
+		m_bInitHudEdit = true;
+	}
+
+	g_uiCtx.dPanel.x = 0;
+	g_uiCtx.dPanel.y = 0;
+	g_uiCtx.dPanel.wide = param.wide;
+	g_uiCtx.dPanel.tall = param.tall;
+	g_uiCtx.colors.sectionBg = COLOR_TRANSPARENT;
+
+	NeoUI::BeginContext(&g_uiCtx, param.eMode, L"HUD Editor", "CtxHUDEditor");
+	{
+		const char *pszClassName = m_hudEditAmmo.GetPanelClassName();
+		PanelAnimationMap *map = FindPanelAnimationMap(pszClassName);
+
+		NeoUI::BeginSection(NeoUI::SECTIONFLAG_DEFAULTFOCUS);
+		{
+			NeoUI::SetPerRowLayout(6, nullptr);
+			if (NeoUI::Button(L"Back").bPressed)
+			{
+				m_state = STATE_SETTINGS;
+			}
+			if (NeoUI::Button(L"Save").bPressed)
+			{
+				KeyValues *dummyCurKV = new KeyValues("");
+				KeyValues *dummyDefKV = new KeyValues("");
+				KeyValues *kv = new KeyValues("Resource/UserHudLayout.res");
+
+				const char *pszName = m_hudEditAmmo.Panel::GetName();
+				if (map)
+				{
+					KeyValues *pSubKey = new KeyValues(pszName);
+					pSubKey->SetString("fieldName", pszName);
+					bool bHasUserValues = false;
+
+					for (PanelAnimationMapEntry &entry : map->entries)
+					{
+						// NEO JANK: Refit IPanelAnimationPropertyConverter so we can compare
+						// verses default value and see to create entry or not
+						vgui::IPanelAnimationPropertyConverter *converter = FindConverter(
+								entry.m_pszType);
+						if (!converter)
+						{
+							continue;
+						}
+
+						// TODO: look in vgui_controls/Panel.cpp
+						//
+						// Those types GetData doesn't work, need to reconstruct it
+						// ourselves
+						/**/ if (  0 == V_strcmp(entry.m_pszType, "proportional_xpos")
+								|| 0 == V_strcmp(entry.m_pszType, "proportional_ypos"))
+						{
+							auto propConv = static_cast<CProportionalIntWithScreenspacePropertyX *>(converter);
+							const int nSize = propConv->GetPanelDimension(&m_hudEditAmmo);
+							const int nParentSize = propConv->GetScreenSize(&m_hudEditAmmo);
+
+							// TODO: All flags are unused at the moment, maybe extra toggle to set flags through UI?
+							static constexpr const int nFlagRightAlign = Panel::BUILDMODE_SAVE_XPOS_RIGHTALIGNED;
+							static constexpr const int nFlagCenterAlign = Panel::BUILDMODE_SAVE_XPOS_CENTERALIGNED;
+							static constexpr const int nFlagProportionalSelf = Panel::BUILDMODE_SAVE_XPOS_PROPORTIONAL_SELF;
+							static constexpr const int nFlagProportionalParent = Panel::BUILDMODE_SAVE_XPOS_PROPORTIONAL_PARENT;
+
+							void *data = (*entry.m_pfnLookup)(&m_hudEditAmmo);
+							const int nCurPos = *(int *)data;
+
+							converter->InitFromDefault(&m_hudEditAmmo, &entry);
+							data = (*entry.m_pfnLookup)(&m_hudEditAmmo);
+							const int nDefPos = *(int *)data;
+							if (nCurPos != nDefPos)
+							{
+								const int nFlags = 0; // TODO
+
+								// Reversal of ComputePos in vgui_controls/Panel.cpp
+								int nPosDelta = 0;
+								if (nFlags & nFlagRightAlign)
+								{
+									nPosDelta = nCurPos + nParentSize;
+								}
+								else if (nFlags & nFlagCenterAlign)
+								{
+									nPosDelta = nCurPos - (nParentSize / 2);
+								}
+								else
+								{
+									nPosDelta = nCurPos;
+								}
+
+								int nNewPos = 0;
+								float flPos = 0.0f;
+								if (nFlags & nFlagProportionalSelf)
+								{
+									flPos = nPosDelta / (float)(nSize);
+								}
+								else if (nFlags & nFlagProportionalParent)
+								{
+									flPos = nPosDelta / (float)(nParentSize);
+								}
+								else
+								{
+									nNewPos = nPosDelta;
+								}
+
+								if (m_hudEditAmmo.IsProportional())
+								{
+									nNewPos = vgui::scheme()->GetProportionalNormalizedValueEx(m_hudEditAmmo.GetScheme(), nNewPos);
+								}
+
+								const char *pszProp = "";
+								if (nFlags & nFlagProportionalSelf)
+								{
+									pszProp = "s";
+								}
+								else if (nFlags & nFlagProportionalParent)
+								{
+									pszProp = "c";
+								}
+
+								const char *pszAlign = "";
+								if (nFlags & nFlagRightAlign)
+								{
+									pszAlign = "r";
+								}
+								else if (nFlags & nFlagCenterAlign)
+								{
+									pszAlign = "c";
+								}
+
+								char szStr[16];
+								if (nFlags & (nFlagProportionalSelf | nFlagProportionalParent))
+								{
+									V_sprintf_safe(szStr, "%s%s%.4f", pszAlign, pszProp, flPos);
+								}
+								else
+								{
+									V_sprintf_safe(szStr, "%s%s%d", pszAlign, pszProp, nNewPos);
+								}
+								pSubKey->SetString(entry.m_pszScriptName, szStr);
+								bHasUserValues = true;
+							}
+						}
+						else if (  0 == V_strcmp(entry.m_pszType, "proportional_width")
+								|| 0 == V_strcmp(entry.m_pszType, "proportional_height"))
+						{
+							// TODO: Never really used so leave it there for now
+							Assert(0);
+						}
+						else
+						{
+							converter->GetData(&m_hudEditAmmo, dummyCurKV, &entry);
+							converter->InitFromDefault(&m_hudEditAmmo, &entry);
+							converter->GetData(&m_hudEditAmmo, dummyDefKV, &entry);
+							if (0 == V_strcmp(entry.m_pszType, "Color"))
+							{
+								// TYPE_COLOR is missing both SaveToFile write out and GetString
+								// in KeyValues.cpp. See the TODO in KeyValues::RecursiveSaveToFile
+								const Color colorCur = dummyCurKV->GetColor(entry.m_pszScriptName);
+								const Color colorDef = dummyDefKV->GetColor(entry.m_pszScriptName);
+								if (colorCur != colorDef)
+								{
+									char szColor[32];
+									V_sprintf_safe(szColor, "%d %d %d %d",
+											colorCur[0], colorCur[1], colorCur[2], colorCur[3]);
+									pSubKey->SetString(entry.m_pszScriptName, szColor);
+									bHasUserValues = true;
+								}
+							}
+							else
+							{
+								const char *pszCur = dummyCurKV->GetString(entry.m_pszScriptName);
+								const char *pszDef = dummyDefKV->GetString(entry.m_pszScriptName);
+								if (0 != V_strcmp(pszCur, pszDef))
+								{
+									pSubKey->SetString(entry.m_pszScriptName, pszCur);
+									bHasUserValues = true;
+								}
+							}
+						}
+					}
+
+					if (bHasUserValues)
+					{
+						kv->AddSubKey(pSubKey);
+					}
+					else
+					{
+						pSubKey->deleteThis();
+					}
+				}
+
+				kv->SaveToFile(g_pFullFileSystem, "scripts/UserHudLayout.res");
+				kv->deleteThis();
+
+				dummyCurKV->deleteThis();
+				dummyDefKV->deleteThis();
+
+				engine->ClientCmd_Unrestricted("hud_reloadscheme");
+
+				m_state = STATE_SETTINGS;
+			}
+
+			NeoUI::SetPerRowLayout(6, nullptr);
+			if (map)
+			{
+				wchar_t wszName[64];
+				for (PanelAnimationMapEntry &entry : map->entries)
+				{
+					void *data = (*entry.m_pfnLookup)(&m_hudEditAmmo);
+					Q_UTF8ToUnicode(entry.m_pszScriptName, wszName, sizeof(wszName));
+
+					/**/ if (entry.m_pszType[0] == 'i'
+							|| (entry.m_pszType[0] == 'p'
+								&& (0 != V_strcmp(entry.m_pszType, "proportional_float")))
+							)
+					{
+						int *pIVal = (int *)data;
+						NeoUI::SliderInt(wszName, pIVal, 0, param.wide);
+					}
+					else if (entry.m_pszType[0] == 'f'
+							|| (entry.m_pszType[0] == 'p'
+								&& (0 == V_strcmp(entry.m_pszType, "proportional_float")))
+							)
+					{
+						float *pFlVal = (float *)data;
+						NeoUI::Slider(wszName, pFlVal, 0, param.wide, 4, 0.1f);
+					}
+					else if (entry.m_pszType[0] == 'b')
+					{
+						bool *pBool = (bool *)data;
+						NeoUI::RingBoxBool(wszName, pBool);
+					}
+					else if (entry.m_pszType[0] == 'C')
+					{
+						Color *pColor = (Color *)data;
+						Color &rColor = *pColor;
+						NeoUI::ColorEdit(wszName, &rColor[0], &rColor[1], &rColor[2], &rColor[3]);
+					}
+				}
+			}
+		}
+		NeoUI::EndSection();
+	}
+
+	static const CNEOHud_Ammo::WeaponInfos sActiveWepInfos = {
+		.pszPrintName = "MX",
+		.pszBulletChar = "a",
+		.wepBits = NEO_WEP_MX,
+		.bMelee = false,
+		.bAutomatic = true,
+		.bUsesClipsForAmmo1 = true,
+		.iPrimaryAmmoCount = 20,
+		.iMaxClip1 = 50,
+		.iDefaultClip1 = 50,
+		.iClip1 = 20,
+	};
+	m_hudEditAmmo.MainDraw(sActiveWepInfos);
+
+	NeoUI::SwapFont(NeoUI::FONT_NTNORMAL, true);
 }
 
 void CNeoRoot::MainLoopMapList(const MainLoopParam param)

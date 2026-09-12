@@ -33,6 +33,15 @@ DECLARE_NAMED_HUDELEMENT(CNEOHud_Ammo, NHudWeapon);
 
 NEO_HUD_ELEMENT_DECLARE_FREQ_CVAR(Ammo, 0.00695);
 
+CNEOHud_Ammo::CNEOHud_Ammo()
+	: CHudElement("NHudWeapon"), EditablePanel(nullptr, "NHudWeapon")
+{
+	SetAutoDelete(false);
+	vgui::surface()->GetScreenSize(m_resX, m_resY);
+	SetBounds(0, 0, m_resX, m_resY);
+	SetVisible(true);
+}
+
 CNEOHud_Ammo::CNEOHud_Ammo(const char* pElementName, vgui::Panel* parent)
 	: CHudElement(pElementName), EditablePanel(parent, pElementName)
 {
@@ -72,6 +81,7 @@ void CNEOHud_Ammo::ApplySchemeSettings(vgui::IScheme* pScheme)
 	BaseClass::ApplySchemeSettings(pScheme);
 
 	LoadControlSettings("scripts/HudLayout.res");
+	LoadControlSettings("scripts/UserHudLayout.res");
 
 	m_hSmallTextFont = pScheme->GetFont("NHudOCRSmall");
 	m_hBulletFont = pScheme->GetFont("NHudBullets");
@@ -86,197 +96,27 @@ void CNEOHud_Ammo::ApplySchemeSettings(vgui::IScheme* pScheme)
 void CNEOHud_Ammo::DrawAmmo() const
 {
 	Assert(C_NEO_Player::GetLocalNEOPlayer());
-
-	C_NEOBaseCombatWeapon* activeWep = dynamic_cast<C_NEOBaseCombatWeapon*>(C_NEO_Player::GetLocalNEOPlayer()->GetActiveWeapon());
-	if (!activeWep)
-		return;
-
-	const size_t maxWepnameLen = 64;
-	char wepName[maxWepnameLen]{ '\0' };
-	wchar_t unicodeWepName[maxWepnameLen]{ L'\0' };
-	V_strcpy_safe(wepName, activeWep->GetPrintName());
-	int textLen;
-	for (textLen = 0; textLen < sizeof(wepName); ++textLen) {
-		if (wepName[textLen] == 0)
-			break;
-		wepName[textLen] = toupper(wepName[textLen]);
-	}
-	g_pVGuiLocalize->ConvertANSIToUnicode(wepName, unicodeWepName, sizeof(unicodeWepName));
-
-	DrawNeoHudRoundedBox(xpos, ypos, xpos + wide, ypos + tall, box_color, top_left_corner, top_right_corner, bottom_left_corner, bottom_right_corner);
-
-	surface()->DrawSetTextFont(m_hSmallTextFont);
-	surface()->DrawSetTextColor(ammo_text_color);
-	int fontWidth, fontHeight;
-	surface()->GetTextSize(m_hSmallTextFont, unicodeWepName, fontWidth, fontHeight);
-	surface()->DrawSetTextPos((text_xpos + xpos) - fontWidth, text_ypos + ypos);
-	surface()->DrawPrintText(unicodeWepName, textLen);
-
-	if(activeWep->IsGhost())
-		return;
-
-	const int maxClip = activeWep->GetMaxClip1();
-	if (maxClip == 0 || activeWep->IsMeleeWeapon())
-		return;
-
-	const int ammoCount = activeWep->m_iPrimaryAmmoCount;
-	const int numClips = ceil(abs((float)ammoCount / activeWep->GetMaxClip1())); // abs because grenades return negative values (???) // casting division to float in case we have a half-empty mag, rounding up to show the half mag as one more mag
-	const bool isSupa = activeWep->GetNeoWepBits() & NEO_WEP_SUPA7;
-		
-	if (activeWep->UsesClipsForAmmo1() && !(activeWep->GetNeoWepBits() & NEO_WEP_DETPACK)) {
-		const int maxLen = 5;
-		char clipsText[maxLen]{ '\0' };
-		if(isSupa)
-		{
-			V_sprintf_safe(clipsText, "%d+%d", ammoCount, activeWep->m_iSecondaryAmmoCount.Get());
-		} else
-		{
-			V_sprintf_safe(clipsText, "%d", numClips);
-		}
-
-		wchar_t unicodeClipsText[maxLen]{ L'\0' };
-		g_pVGuiLocalize->ConvertANSIToUnicode(clipsText, unicodeClipsText, sizeof(unicodeClipsText));
-
-		int clipsTextWidth, clipsTextHeight;
-		surface()->GetTextSize(m_hTextFont, unicodeClipsText, clipsTextWidth, clipsTextHeight);
-		surface()->DrawSetTextFont(m_hTextFont);
-
-		surface()->GetTextSize(m_hTextFont, unicodeClipsText, fontWidth, fontHeight);
-		surface()->DrawSetTextPos(digit2_xpos + xpos - fontWidth, digit2_ypos + ypos);
-		surface()->DrawPrintText(unicodeClipsText, V_wcslen(unicodeClipsText));
-	}
-
-	const char* ammoChar = nullptr;
-	int fireModeWidth = 0, fireModeHeight = 0;
-	int magSizeMax = 0;
-	int magSizeCurrent = 0;
-		
-	if ((activeWep->UsesClipsForAmmo1() && !(activeWep->GetNeoWepBits() & NEO_WEP_THROWABLE)) || (activeWep->GetNeoWepBits() & NEO_WEP_BALC))
+	C_NEOBaseCombatWeapon *activeWep = dynamic_cast<C_NEOBaseCombatWeapon *>(
+			C_NEO_Player::GetLocalNEOPlayer()->GetActiveWeapon());
+	if (activeWep)
 	{
-		char fireModeText[2]{ '\0' };
-
-		ammoChar = activeWep->GetNEOWpnData().szBulletCharacter;
-		magSizeMax = activeWep->GetMaxClip1();
-		magSizeCurrent = activeWep->Clip1();
-			
-		if(activeWep)
-		{			
-			if(activeWep->IsAutomatic())
-				fireModeText[0] = 'j';
-			else if(isSupa)
-				if(dynamic_cast<CWeaponSupa7*>(activeWep)->SlugLoaded())
-					fireModeText[0] = 'h';
-				else
-					fireModeText[0] = 'l';
-			else
-				fireModeText[0] = 'h';
-				
- 
-			wchar_t unicodeFireModeText[2]{ L'\0' };
-			g_pVGuiLocalize->ConvertANSIToUnicode(fireModeText, unicodeFireModeText, sizeof(unicodeFireModeText));
-
-			surface()->DrawSetTextFont(m_hBulletFont);
-			surface()->DrawSetTextPos(icon_xpos + xpos, icon_ypos + ypos);
-			surface()->DrawPrintText(unicodeFireModeText, V_wcslen(unicodeFireModeText));
-
-			surface()->GetTextSize(m_hBulletFont, unicodeFireModeText, fireModeWidth, fireModeHeight);
-		}
-	} else 
-	{
-		if(activeWep->GetNeoWepBits() & NEO_WEP_SMOKE_GRENADE)
-		{
-			ammoChar = "f";
-			magSizeMax = magSizeCurrent = ammoCount;
-		} else if(activeWep->GetNeoWepBits() & NEO_WEP_FRAG_GRENADE)
-		{
-			ammoChar = "g";
-			magSizeMax = magSizeCurrent = ammoCount;
-		}			
-	}
-
-	if (activeWep->GetNeoWepBits() & NEO_WEP_BALC)
-	{
-		DrawHeatMeter(activeWep);
-		return;
-	}
-
-	surface()->DrawSetTextColor(ammo_color);
-	if (digit_as_number && activeWep->UsesClipsForAmmo1())
-	{ // Draw bullets in magazine in number form
-		surface()->DrawSetTextFont(m_hBulletFont);
-		surface()->DrawSetTextPos(digit_xpos + xpos, digit_ypos + ypos);
-		wchar_t bullets[22];
-		V_swprintf_safe(bullets, L"%i/%i", magSizeCurrent, magSizeMax);
-		surface()->DrawPrintText(bullets, (int)(magSizeCurrent == 0 ? 1 : log10(magSizeCurrent) + 1) + (int)(log10(magSizeMax) + 1) + 1);
-		return;
-	}
-
-	if (ammoChar == nullptr)
-		return;
-
-	const int maxSpaceAvailableForBullets = digit_max_width;
-	const int bulletWidth = surface()->GetCharacterWidth(m_hBulletFont, *ammoChar);
-	const int plusWidth = surface()->GetCharacterWidth(m_hBulletFont, '+');
-	const int maxBulletsWeCanDisplay = bulletWidth == 0 ? 0 : (maxSpaceAvailableForBullets / bulletWidth);
-
-	if (maxBulletsWeCanDisplay == 0)
-		return;
-
-	const int maxBulletsWeCanDisplayWithPlus = bulletWidth == 0 ? 0 : ((maxSpaceAvailableForBullets - plusWidth) / bulletWidth);
-	const bool bulletsOverflowing = maxBulletsWeCanDisplay < magSizeMax;
-
-	if(bulletsOverflowing)
-	{
-		magSizeMax = maxBulletsWeCanDisplayWithPlus + 1;
-	}
-
-	constexpr auto maxBullets = 100; // PZ Mag Size
-
-	char bullets[maxBullets + 1];
-	magSizeMax = Min(magSizeMax, narrow_cast<int>(sizeof(bullets) - 1));
-	int i;
-	for(i = 0; i < magSizeMax; i++)
-	{
-		bullets[i] = *ammoChar;
-	}
-	bullets[i] = '\0';
-
-	int magAmountToDrawFilled = magSizeCurrent;
-		
-	if(bulletsOverflowing)
-	{
-		if (magSizeMax > 0)
-			bullets[magSizeMax - 1] = '+';
-
-		if(maxClip == magSizeCurrent)
-		{
-			magAmountToDrawFilled = magSizeMax;
-		} else if(magSizeMax - 1 < magSizeCurrent)
-		{
-			magAmountToDrawFilled = magSizeMax - 1;
-		} else
-		{
-			magAmountToDrawFilled = magSizeCurrent;
-		}
-	}
-		
-	wchar_t unicodeBullets[maxBullets + 1];
-	g_pVGuiLocalize->ConvertANSIToUnicode(bullets, unicodeBullets, sizeof(unicodeBullets));
-		
-	if (magAmountToDrawFilled > 0)
-	{
-		surface()->DrawSetTextFont(m_hBulletFont);
-		surface()->DrawSetTextPos(digit_xpos + xpos, digit_ypos + ypos);
-		surface()->DrawPrintText(unicodeBullets, magAmountToDrawFilled);
-	}
-
-	if(maxClip > 0)
-	{
-		if (magSizeMax > 0) {
-			surface()->DrawSetTextColor(emptied_ammo_color);
-			surface()->DrawSetTextPos(digit_xpos + xpos + (bulletWidth * magAmountToDrawFilled), digit_ypos + ypos);
-			surface()->DrawPrintText(&unicodeBullets[magAmountToDrawFilled], magSizeMax - magAmountToDrawFilled);
-		}
+		const WeaponInfos activeWepInfos = {
+			.pszPrintName = activeWep->GetPrintName(),
+			.pszBulletChar = activeWep->GetNEOWpnData().szBulletCharacter,
+			.wepBits = activeWep->GetNeoWepBits(),
+			.bMelee = activeWep->IsMeleeWeapon(),
+			.bAutomatic = activeWep->IsAutomatic(),
+			.bUsesClipsForAmmo1 = activeWep->UsesClipsForAmmo1(),
+			.bSlugLoaded = (activeWep->GetNeoWepBits() & NEO_WEP_SUPA7)
+					? static_cast<CWeaponSupa7 *>(activeWep)->SlugLoaded()
+					: false,
+			.iPrimaryAmmoCount = activeWep->m_iPrimaryAmmoCount,
+			.iSecondaryAmmoCount = activeWep->m_iSecondaryAmmoCount,
+			.iMaxClip1 = activeWep->GetMaxClip1(),
+			.iDefaultClip1 = activeWep->GetDefaultClip1(),
+			.iClip1 = activeWep->Clip1(),
+		};
+		MainDraw(activeWepInfos);
 	}
 }
 
@@ -294,12 +134,12 @@ void CNEOHud_Ammo::DrawNeoHudElement()
 	}
 }
 
-void CNEOHud_Ammo::DrawHeatMeter(C_NEOBaseCombatWeapon* activeWep) const
+void CNEOHud_Ammo::DrawHeatMeter(const WeaponInfos &activeWepInfos) const
 {
-	float flHeatAmount = (1.0f - (activeWep->GetPrimaryAmmoCount() / (float)activeWep->GetDefaultClip1()));
+	float flHeatAmount = (1.0f - (activeWepInfos.iPrimaryAmmoCount / (float)activeWepInfos.iDefaultClip1));
 	Color heatColorLerp = LerpColor(ammo_color,heat_color, flHeatAmount);
 	
-	if (activeWep->GetPrimaryAmmoCount() == 0)
+	if (activeWepInfos.iPrimaryAmmoCount == 0)
 	{
 		surface()->DrawSetTextFont(m_hSmallTextFont);
 		surface()->DrawSetTextPos(heatbar_xpos + xpos, (heatbar_ypos + ypos) - 22);
@@ -320,3 +160,201 @@ void CNEOHud_Ammo::DrawHeatMeter(C_NEOBaseCombatWeapon* activeWep) const
 		heatbar_xpos + xpos + heatbar_w,
 		heatbar_ypos + ypos + heatbar_h);
 }
+
+void CNEOHud_Ammo::MainDraw(const WeaponInfos &activeWepInfos) const
+{
+	wchar_t wszWepName[64] = {};
+	Q_UTF8ToUnicode(activeWepInfos.pszPrintName, wszWepName, sizeof(wszWepName));
+	V_wcsupr(wszWepName);
+
+	DrawNeoHudRoundedBox(xpos, ypos, xpos + wide, ypos + tall,
+			box_color,
+			top_left_corner, top_right_corner, bottom_left_corner, bottom_right_corner);
+
+	vgui::surface()->DrawSetTextFont(m_hSmallTextFont);
+	vgui::surface()->DrawSetTextColor(ammo_text_color);
+	int fontWidth, fontHeight;
+	vgui::surface()->GetTextSize(m_hSmallTextFont, wszWepName, fontWidth, fontHeight);
+	vgui::surface()->DrawSetTextPos((text_xpos + xpos) - fontWidth, text_ypos + ypos);
+	vgui::surface()->DrawPrintText(wszWepName, V_wcslen(wszWepName));
+
+	if ((activeWepInfos.wepBits & NEO_WEP_GHOST)
+			|| activeWepInfos.bMelee
+			|| activeWepInfos.iMaxClip1 == 0)
+	{
+		return;
+	}
+
+	const int ammoCount = activeWepInfos.iPrimaryAmmoCount;
+	// abs because grenades return negative values (???)
+	// casting division to float in case we have a half-empty mag, rounding up
+	// to show the half mag as one more mag
+	const int numClips = ceil(abs((float)ammoCount / activeWepInfos.iMaxClip1));
+	const bool isSupa = activeWepInfos.wepBits & NEO_WEP_SUPA7;
+		
+	if (activeWepInfos.bUsesClipsForAmmo1 && !(activeWepInfos.wepBits & NEO_WEP_DETPACK))
+	{
+		wchar_t wszClipsText[5] = {};
+		if (isSupa)
+		{
+			V_swprintf_safe(wszClipsText, L"%d+%d",
+					ammoCount, activeWepInfos.iSecondaryAmmoCount);
+		}
+		else
+		{
+			V_swprintf_safe(wszClipsText, L"%d",
+					numClips);
+		}
+
+		surface()->DrawSetTextFont(m_hTextFont);
+		surface()->GetTextSize(m_hTextFont, wszClipsText, fontWidth, fontHeight);
+		surface()->DrawSetTextPos(digit2_xpos + xpos - fontWidth, digit2_ypos + ypos);
+		surface()->DrawPrintText(wszClipsText, V_wcslen(wszClipsText));
+	}
+
+	const char *ammoChar = nullptr;
+	int magSizeMax = 0;
+	int magSizeCurrent = 0;
+		
+	if ((activeWepInfos.bUsesClipsForAmmo1 && !(activeWepInfos.wepBits & NEO_WEP_THROWABLE)) || (activeWepInfos.wepBits & NEO_WEP_BALC))
+	{
+		wchar_t wszFireMode[2] = {};
+
+		ammoChar = activeWepInfos.pszBulletChar;
+		magSizeMax = activeWepInfos.iMaxClip1;
+		magSizeCurrent = activeWepInfos.iClip1;
+			
+		if (activeWepInfos.bAutomatic)
+		{
+			wszFireMode[0] = L'j';
+		}
+		else if (isSupa)
+		{
+			if (activeWepInfos.bSlugLoaded)
+			{
+				wszFireMode[0] = L'h';
+			}
+			else
+			{
+				wszFireMode[0] = L'l';
+			}
+		}
+		else
+		{
+			wszFireMode[0] = L'h';
+		}
+
+		vgui::surface()->DrawSetTextFont(m_hBulletFont);
+		vgui::surface()->DrawSetTextPos(icon_xpos + xpos, icon_ypos + ypos);
+		vgui::surface()->DrawPrintText(wszFireMode, V_wcslen(wszFireMode));
+	}
+	else 
+	{
+		if (activeWepInfos.wepBits & NEO_WEP_SMOKE_GRENADE)
+		{
+			ammoChar = "f";
+			magSizeMax = magSizeCurrent = ammoCount;
+		}
+		else if (activeWepInfos.wepBits & NEO_WEP_FRAG_GRENADE)
+		{
+			ammoChar = "g";
+			magSizeMax = magSizeCurrent = ammoCount;
+		}			
+	}
+
+	if (activeWepInfos.wepBits & NEO_WEP_BALC)
+	{
+		DrawHeatMeter(activeWepInfos);
+		return;
+	}
+
+	vgui::surface()->DrawSetTextColor(ammo_color);
+	// Draw bullets in magazine in number form
+	if (digit_as_number && activeWepInfos.bUsesClipsForAmmo1)
+	{
+		surface()->DrawSetTextFont(m_hBulletFont);
+		surface()->DrawSetTextPos(digit_xpos + xpos, digit_ypos + ypos);
+		wchar_t bullets[22];
+		V_swprintf_safe(bullets, L"%i/%i", magSizeCurrent, magSizeMax);
+		surface()->DrawPrintText(bullets, (int)(magSizeCurrent == 0 ? 1 : log10(magSizeCurrent) + 1) + (int)(log10(magSizeMax) + 1) + 1);
+		return;
+	}
+
+	if (ammoChar == nullptr)
+	{
+		return;
+	}
+
+	const int maxSpaceAvailableForBullets = digit_max_width;
+	const int bulletWidth = surface()->GetCharacterWidth(m_hBulletFont, *ammoChar);
+	const int plusWidth = surface()->GetCharacterWidth(m_hBulletFont, '+');
+	const int maxBulletsWeCanDisplay = bulletWidth == 0 ? 0 : (maxSpaceAvailableForBullets / bulletWidth);
+
+	if (maxBulletsWeCanDisplay == 0)
+	{
+		return;
+	}
+
+	const int maxBulletsWeCanDisplayWithPlus = bulletWidth == 0 ? 0 : ((maxSpaceAvailableForBullets - plusWidth) / bulletWidth);
+	const bool bulletsOverflowing = maxBulletsWeCanDisplay < magSizeMax;
+
+	if (bulletsOverflowing)
+	{
+		magSizeMax = maxBulletsWeCanDisplayWithPlus + 1;
+	}
+
+	constexpr auto maxBullets = 100; // PZ Mag Size
+
+	char bullets[maxBullets + 1];
+	magSizeMax = Min(magSizeMax, narrow_cast<int>(sizeof(bullets) - 1));
+	int i;
+	for (i = 0; i < magSizeMax; i++)
+	{
+		bullets[i] = *ammoChar;
+	}
+	bullets[i] = '\0';
+
+	int magAmountToDrawFilled = magSizeCurrent;
+		
+	if (bulletsOverflowing)
+	{
+		if (magSizeMax > 0)
+		{
+			bullets[magSizeMax - 1] = '+';
+		}
+
+		if (activeWepInfos.iMaxClip1 == magSizeCurrent)
+		{
+			magAmountToDrawFilled = magSizeMax;
+		}
+		else if (magSizeMax - 1 < magSizeCurrent)
+		{
+			magAmountToDrawFilled = magSizeMax - 1;
+		}
+		else
+		{
+			magAmountToDrawFilled = magSizeCurrent;
+		}
+	}
+		
+	wchar_t wszBullets[maxBullets + 1];
+	Q_UTF8ToUnicode(bullets, wszBullets, sizeof(wszBullets));
+		
+	if (magAmountToDrawFilled > 0)
+	{
+		vgui::surface()->DrawSetTextFont(m_hBulletFont);
+		vgui::surface()->DrawSetTextPos(digit_xpos + xpos, digit_ypos + ypos);
+		vgui::surface()->DrawPrintText(wszBullets, magAmountToDrawFilled);
+	}
+
+	if (activeWepInfos.iMaxClip1 > 0)
+	{
+		if (magSizeMax > 0)
+		{
+			vgui::surface()->DrawSetTextColor(emptied_ammo_color);
+			vgui::surface()->DrawSetTextPos(digit_xpos + xpos + (bulletWidth * magAmountToDrawFilled), digit_ypos + ypos);
+			vgui::surface()->DrawPrintText(&wszBullets[magAmountToDrawFilled], magSizeMax - magAmountToDrawFilled);
+		}
+	}
+}
+

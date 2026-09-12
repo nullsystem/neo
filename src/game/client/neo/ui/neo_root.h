@@ -22,6 +22,7 @@
 #include "neo_ui.h"
 #include "neo_root_serverbrowser.h"
 #include "neo_root_settings.h"
+#include "neo_hud_ammo.h"
 
 class CAvatarImage;
 
@@ -73,6 +74,7 @@ enum RootState
 	STATE_SERVERBROWSER,
 	STATE_CREDITS,
 	STATE_OVERLAY,
+	STATE_HUDEDIT,
 
 	// Those that are not the main states goes under here
 	STATE__SUBSTATES,
@@ -165,6 +167,7 @@ public:
 	void MainLoopServerBrowser(const MainLoopParam param);
 	void MainLoopCredits(const MainLoopParam param);
 	void MainLoopOverlay(const MainLoopParam param);
+	void MainLoopHUDEdit(const MainLoopParam param);
 	void MainLoopMapList(const MainLoopParam param);
 	void MainLoopServerDetails(const MainLoopParam param);
 	void MainLoopSprayPicker(const MainLoopParam param);
@@ -294,6 +297,9 @@ public:
 	};
 	CUtlVector<TeamInfo> m_teamInfos;
 	int m_iSetTeamPreset = 0;
+
+	bool m_bInitHudEdit = false;
+	CNEOHud_Ammo m_hudEditAmmo;
 };
 
 extern CNeoRoot *g_pNeoRoot;

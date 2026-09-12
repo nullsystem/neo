@@ -5867,6 +5867,7 @@ public:
 	}
 };
 
+#ifndef NEO
 class CProportionalIntWithScreenspacePropertyX : public vgui::IPanelAnimationPropertyConverter
 {
 public:
@@ -5940,6 +5941,7 @@ public:
 		return pPanel->GetTall();
 	}
 };
+#endif // NEO
 
 class CProportionalWidthProperty : public vgui::IPanelAnimationPropertyConverter
 {
@@ -6220,7 +6222,11 @@ static CProportionalHeightProperty proportional_height_converter;
 
 static CUtlDict< IPanelAnimationPropertyConverter *, int > g_AnimationPropertyConverters;
 
+#ifdef NEO
+IPanelAnimationPropertyConverter *FindConverter( char const *typeName )
+#else
 static IPanelAnimationPropertyConverter *FindConverter( char const *typeName )
+#endif
 {
 	int lookup = g_AnimationPropertyConverters.Find( typeName );
 	if ( lookup == g_AnimationPropertyConverters.InvalidIndex() )

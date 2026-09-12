@@ -1666,6 +1666,13 @@ static const wchar_t *NEOSCOREBOARDPADDING_LABELS[NEOSCOREBOARDPADDING__TOTAL] =
 void NeoSettings_HUD(NeoSettings *ns)
 {
 	NeoSettings::HUD *pHud = &ns->hud;
+	NeoUI::Divider(L"EDIT IN-GAME HUDS");
+	NeoUI::Pad();
+	if (NeoUI::Button(L"EDIT").bPressed)
+	{
+		g_pNeoRoot->m_state = STATE_HUDEDIT;
+		g_pNeoRoot->m_bInitHudEdit = false;
+	}
 	NeoUI::Divider(L"MISCELLANEOUS");
 	NeoUI::RingBoxBool(L"Classic squad list", &pHud->bShowSquadList);
 	NeoUI::RingBox(L"Health display mode", HEALTHMODE_LABELS, pHud->iHealthMode >= 2 ? ARRAYSIZE(HEALTHMODE_LABELS) : 2, &pHud->iHealthMode);

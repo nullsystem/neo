@@ -8,17 +8,37 @@
 #include "hudelement.h"
 #include <vgui_controls/EditablePanel.h>
 
+class CNeoRoot;
+
 class CNEOHud_Ammo : public CNEOHud_ChildElement, public CHudElement, public vgui::EditablePanel
 {
 	DECLARE_CLASS_SIMPLE(CNEOHud_Ammo, EditablePanel);
 
 public:
+	CNEOHud_Ammo();
 	CNEOHud_Ammo(const char *pElementName, vgui::Panel *parent = nullptr);
 
 	virtual ~CNEOHud_Ammo() { }
 
 	virtual void ApplySchemeSettings(vgui::IScheme* pScheme);
 	virtual void Paint();
+
+	struct WeaponInfos
+	{
+		const char *pszPrintName;
+		const char *pszBulletChar;
+		NEO_WEP_BITS_UNDERLYING_TYPE wepBits;
+		bool bMelee;
+		bool bAutomatic;
+		bool bUsesClipsForAmmo1;
+		bool bSlugLoaded;
+		int iPrimaryAmmoCount;
+		int iSecondaryAmmoCount;
+		int iMaxClip1;
+		int iDefaultClip1;
+		int iClip1;
+	};
+	void MainDraw(const WeaponInfos &activeWepInfos) const;
 
 protected:
 	virtual void UpdateStateForNeoHudElementDraw();
@@ -27,9 +47,11 @@ protected:
 
 private:
 	void DrawAmmo() const;
-	void DrawHeatMeter(C_NEOBaseCombatWeapon* activeWep) const;
+	void DrawHeatMeter(const WeaponInfos &activeWepInfos) const;
 
 private:
+	friend class CNeoRoot;
+
 	vgui::HFont m_hSmallTextFont = 0;
 	vgui::HFont m_hTextFont = 0;
 	vgui::HFont m_hBulletFont = 0;
